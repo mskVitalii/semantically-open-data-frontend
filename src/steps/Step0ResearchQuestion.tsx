@@ -1,10 +1,10 @@
-import { Text, Badge, Group, Stack, Paper, Accordion } from '@mantine/core'
+import { Accordion, Badge, Group, Paper, Stack, Text } from '@mantine/core'
 import { IconHash } from '@tabler/icons-react'
+import { useState } from 'react'
 import type { ResearchQuestionStepsType } from '../types'
 import Step1Embeddings from './Step1Embeddings'
-import Step3Interpretation from './Step3Interpretation'
 import Step2VectorSearch from './Step2VectorSearch'
-import { useState } from 'react'
+import Step3Interpretation from './Step3Interpretation'
 
 function Step0ResearchQuestion({
   index,
@@ -13,7 +13,7 @@ function Step0ResearchQuestion({
   index: number
   steps: ResearchQuestionStepsType
 }) {
-  const [openEmbeddings, setOpenEmbeddings] = useState<string | null>(null)
+  const [openEmbeddings, setOpenEmbeddings] = useState<string[]>()
   const question = steps.research_question
   if (!question) return null
 
@@ -31,14 +31,13 @@ function Step0ResearchQuestion({
           <Badge size="sm" variant="light" color="blue">
             Question #{index + 1}
           </Badge>
-          {question.question_hash && (
-            <Group gap="xs">
-              <IconHash className="w-3 h-3 text-slate-400" />
-              <Text size="xs" c="dimmed" className="font-mono">
-                {question.question_hash}
-              </Text>
-            </Group>
-          )}
+
+          <Group gap="xs">
+            <IconHash className="w-3 h-3 text-slate-400" />
+            <Text size="xs" c="dimmed" className="font-mono">
+              {question.question_hash}
+            </Text>
+          </Group>
         </Group>
         {/* Question Text */}
         <Text size="md" fw={600} className="text-slate-800 leading-relaxed">
@@ -50,11 +49,11 @@ function Step0ResearchQuestion({
             <span className="font-semibold">Reasoning:</span> {question.reason}
           </Text>
         </div>
-        <Accordion value={openEmbeddings} onChange={setOpenEmbeddings}>
+        <Accordion value={openEmbeddings} onChange={setOpenEmbeddings} multiple>
           <Accordion.Item value="embeddings">
             <Accordion.Control>Embeddings</Accordion.Control>
             <Accordion.Panel>
-              {steps.embeddings && openEmbeddings && (
+              {steps.embeddings && openEmbeddings?.includes('embeddings') && (
                 <Step1Embeddings
                   embeddings={{
                     ...steps.embeddings,
@@ -64,8 +63,13 @@ function Step0ResearchQuestion({
               )}
             </Accordion.Panel>
           </Accordion.Item>
+          <Accordion.Item value="datasets">
+            <Accordion.Control>Datasets</Accordion.Control>
+            <Accordion.Panel>
+              {steps.datasets && <Step2VectorSearch {...steps.datasets} />}
+            </Accordion.Panel>
+          </Accordion.Item>
         </Accordion>
-        {steps.datasets && <Step2VectorSearch {...steps.datasets} />}
         {steps.interpretation && (
           <Step3Interpretation {...steps.interpretation} />
         )}
