@@ -1,16 +1,15 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react'
 import {
-  Card,
-  Alert,
-  Group,
-  Stack,
-  Title,
-  Text,
-  Badge,
   ActionIcon,
-  Tooltip,
-  Paper,
+  Alert,
+  Badge,
+  Card,
   Divider,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
 } from '@mantine/core'
 import {
   IconAlertCircle,
@@ -18,6 +17,9 @@ import {
   IconRefresh,
   IconSparkles,
 } from '@tabler/icons-react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
+import SearchForm from './SearchForm'
+import Step0ResearchQuestion from './steps/Step0ResearchQuestion'
 import type {
   ResearchQuestionStepsType,
   Step0ResearchQuestionsType,
@@ -25,8 +27,6 @@ import type {
   Step2VectorSearchType,
   Step3InterpretationType,
 } from './types'
-import Step0ResearchQuestion from './steps/Step0ResearchQuestion'
-import SearchForm from './SearchForm'
 
 type StreamResponse =
   | {
@@ -87,6 +87,7 @@ const QA: React.FC = () => {
 
     try {
       const encodedQuestion = encodeURIComponent(question)
+      console.log(`request to ${import.meta.env.VITE_API_URL}/v1/datasets/qa`)
       const endpoint = `${import.meta.env.VITE_API_URL}/v1/datasets/qa`
       const url = `${endpoint}?question=${encodedQuestion}&use_grpc=true`
 
