@@ -10,7 +10,7 @@ export type LLMQuestionWithEmbeddings = {
   question: string
   reason: string
   question_hash: string
-  embeddings: number[] | number[][]
+  embeddings: number[]
 }
 
 export type LLMQuestionWithDatasets = {
@@ -124,3 +124,10 @@ export type Step3InterpretationType = {
 }
 
 // #endregion
+
+export type ResearchQuestionStepsType = {
+  research_question?: LLMQuestion
+  embeddings?: Step1EmbeddingsType
+  datasets?: Step2VectorSearchType
+  interpretation?: Step3InterpretationType
+}
