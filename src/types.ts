@@ -131,3 +131,16 @@ export type ResearchQuestionStepsType = {
   datasets?: Step2VectorSearchType
   interpretation?: Step3InterpretationType
 }
+
+export type SearchFilters = {
+  countries?: string[]
+  states?: string[]
+  cities?: string[]
+}
+
+export type SearchParams = {
+  question: string
+  filters: SearchFilters
+  useMultiQuery: boolean
+  useLlmInterpretation: boolean
+}

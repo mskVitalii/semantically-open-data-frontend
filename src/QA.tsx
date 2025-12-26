@@ -22,6 +22,7 @@ import SearchForm from './SearchForm'
 import Step0ResearchQuestion from './steps/Step0ResearchQuestion'
 import type {
   ResearchQuestionStepsType,
+  SearchParams,
   Step0ResearchQuestionsType,
   Step1EmbeddingsType,
   Step2VectorSearchType,
@@ -78,7 +79,7 @@ const QA: React.FC = () => {
     }
   }
 
-  const handleStream = useCallback(async (question: string) => {
+  const handleStream = useCallback(async (params: SearchParams) => {
     handleClear()
     setIsLoading(true)
 
@@ -86,10 +87,28 @@ const QA: React.FC = () => {
     let isManualClose = false
 
     try {
-      const encodedQuestion = encodeURIComponent(question)
       console.log(`request to ${import.meta.env.VITE_API_URL}/v1/datasets/qa`)
       const endpoint = `${import.meta.env.VITE_API_URL}/v1/datasets/qa`
-      const url = `${endpoint}?question=${encodedQuestion}&use_grpc=true`
+      
+      // Формируем параметры запроса
+      const queryParams = new URLSearchParams()
+      queryParams.append('question', params.question)
+      queryParams.append('use_grpc', 'true')
+      queryParams.append('use_multi_query', params.useMultiQuery.toString())
+      queryParams.append('use_llm_interpretation', params.useLlmInterpretation.toString())
+      
+      // Добавляем фильтры если они есть
+      if (params.filters.countries && params.filters.countries.length > 0) {
+        params.filters.countries.forEach(country => queryParams.append('country', country))
+      }
+      if (params.filters.states && params.filters.states.length > 0) {
+        params.filters.states.forEach(state => queryParams.append('state', state))
+      }
+      if (params.filters.cities && params.filters.cities.length > 0) {
+        params.filters.cities.forEach(city => queryParams.append('city', city))
+      }
+      
+      const url = `${endpoint}?${queryParams.toString()}`
 
       eventSource = new EventSource(url)
 
@@ -187,10 +206,10 @@ const QA: React.FC = () => {
     abortControllerRef.current = null
   }, [])
 
-  const handleSubmit = (question: string): void => {
-    if (!isLoading && question.trim()) {
-      setQuestion(question.trim())
-      handleStream(question.trim())
+  const handleSubmit = (params: SearchParams): void => {
+    if (!isLoading && params.question.trim()) {
+      setQuestion(params.question.trim())
+      handleStream(params)
     }
   }
 
