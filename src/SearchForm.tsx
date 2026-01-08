@@ -5,6 +5,8 @@ import {
   Loader,
   MultiSelect,
   Paper,
+  RangeSlider,
+  Select,
   Stack,
   TextInput,
   Tooltip,
@@ -33,13 +35,30 @@ const GERMAN_STATES = [
   { value: 'Berlin', label: 'Berlin' },
 ]
 
+const EMBEDDING_MODELS = [
+  { value: 'baai-bge-m3', label: 'BAAI BGE-M3' },
+  {
+    value: 'intfloat-multilingual-e5-base',
+    label: 'Intfloat Multilingual E5 Base',
+  },
+  { value: 'jinaai-jina-embeddings-v3', label: 'Jina Embeddings V3' },
+  {
+    value: 'sentence-transformers-labse',
+    label: 'Sentence Transformers LaBSE',
+  },
+]
+
 function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
   const [question, setQuestion] = useState<string>(
-    'What is the color of grass in Germany?',
+    'What are the safest neighborhoods in Berlin based on recent crime statistics?',
   )
   const [selectedCountries, setSelectedCountries] = useState<string[]>([])
   const [selectedCities, setSelectedCities] = useState<string[]>([])
   const [selectedStates, setSelectedStates] = useState<string[]>([])
+  const [yearRange, setYearRange] = useState<[number, number]>([2000, 2024])
+  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState<
+    string | null
+  >(null)
   const [useMultiQuery, setUseMultiQuery] = useState<boolean>(true)
   const [useLlmInterpretation, setUseLlmInterpretation] =
     useState<boolean>(true)
@@ -96,6 +115,9 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
         countries: selectedCountries.length > 0 ? selectedCountries : undefined,
         states: selectedStates.length > 0 ? selectedStates : undefined,
         cities: selectedCities.length > 0 ? selectedCities : undefined,
+        year_from: yearRange[0],
+        year_to: yearRange[1],
+        embedding_model: selectedEmbeddingModel || undefined,
       },
       useMultiQuery,
       useLlmInterpretation,
@@ -158,6 +180,38 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
             searchable
           />
         </Group>
+
+        <div style={{ marginTop: '3rem', marginInline: '2rem' }}>
+          <RangeSlider
+            label={(value) => `${value}`}
+            value={yearRange}
+            onChange={setYearRange}
+            min={1990}
+            max={2026}
+            step={1}
+            disabled={isLoading}
+            marks={[
+              { value: 1990, label: '1990' },
+              { value: 2000, label: '2000' },
+              { value: 2010, label: '2010' },
+              { value: 2020, label: '2020' },
+              { value: 2026, label: '2026' },
+            ]}
+            mb="xl"
+            labelAlwaysOn
+          />
+        </div>
+
+        <Select
+          label="Embedding Model"
+          placeholder="Choose embedding model"
+          data={EMBEDDING_MODELS}
+          value={selectedEmbeddingModel}
+          onChange={setSelectedEmbeddingModel}
+          disabled={isLoading}
+          clearable
+          searchable
+        />
 
         <Group>
           <Checkbox

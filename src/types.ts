@@ -136,6 +136,9 @@ export type SearchFilters = {
   countries?: string[]
   states?: string[]
   cities?: string[]
+  year_from?: number
+  year_to?: number
+  embedding_model?: string
 }
 
 export type SearchParams = {
