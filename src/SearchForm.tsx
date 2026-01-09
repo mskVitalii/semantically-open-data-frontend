@@ -58,10 +58,10 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
   const [yearRange, setYearRange] = useState<[number, number]>([2000, 2024])
   const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState<
     string | null
-  >(null)
-  const [useMultiQuery, setUseMultiQuery] = useState<boolean>(true)
+  >('baai-bge-m3')
+  const [useMultiQuery, setUseMultiQuery] = useState<boolean>(false)
   const [useLlmInterpretation, setUseLlmInterpretation] =
-    useState<boolean>(true)
+    useState<boolean>(false)
 
   // Filter states based on selected cities
   const getAvailableStates = () => {
@@ -189,6 +189,7 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
             min={1990}
             max={2026}
             step={1}
+            minRange={1}
             disabled={isLoading}
             marks={[
               { value: 1990, label: '1990' },

@@ -89,25 +89,42 @@ const QA: React.FC = () => {
     try {
       console.log(`request to ${import.meta.env.VITE_API_URL}/v1/datasets/qa`)
       const endpoint = `${import.meta.env.VITE_API_URL}/v1/datasets/qa`
-      
+
       // Формируем параметры запроса
       const queryParams = new URLSearchParams()
       queryParams.append('question', params.question)
-      queryParams.append('use_grpc', 'true')
       queryParams.append('use_multi_query', params.useMultiQuery.toString())
-      queryParams.append('use_llm_interpretation', params.useLlmInterpretation.toString())
-      
+      queryParams.append(
+        'use_llm_interpretation',
+        params.useLlmInterpretation.toString(),
+      )
+
       // Добавляем фильтры если они есть
       if (params.filters.countries && params.filters.countries.length > 0) {
-        params.filters.countries.forEach(country => queryParams.append('country', country))
+        params.filters.countries.forEach((country) =>
+          queryParams.append('country', country),
+        )
       }
       if (params.filters.states && params.filters.states.length > 0) {
-        params.filters.states.forEach(state => queryParams.append('state', state))
+        params.filters.states.forEach((state) =>
+          queryParams.append('state', state),
+        )
       }
       if (params.filters.cities && params.filters.cities.length > 0) {
-        params.filters.cities.forEach(city => queryParams.append('city', city))
+        params.filters.cities.forEach((city) =>
+          queryParams.append('city', city),
+        )
       }
-      
+      if (params.filters.embedding_model) {
+        queryParams.append('embedder_model', params.filters.embedding_model)
+      }
+      if (typeof params.filters.year_from === 'number') {
+        queryParams.append('year_from', params.filters.year_from.toString())
+      }
+      if (typeof params.filters.year_to === 'number') {
+        queryParams.append('year_to', params.filters.year_to.toString())
+      }
+
       const url = `${endpoint}?${queryParams.toString()}`
 
       eventSource = new EventSource(url)
@@ -165,7 +182,7 @@ const QA: React.FC = () => {
         if (eventSource?.readyState === EventSource.CLOSED) {
           console.log('Connection closed normally')
         } else if (eventSource?.readyState === EventSource.CONNECTING) {
-          setError('Failed to establish connection')
+          setError('Сonnection lost. Attempting to reconnect...')
         } else {
           setError('Connection error occurred')
         }
