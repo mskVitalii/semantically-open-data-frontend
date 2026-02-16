@@ -32,6 +32,7 @@ function Step1Embeddings({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const pointsRef = useRef<THREE.Points | null>(null)
+  const labelGroupRef = useRef<THREE.Group | null>(null)
   const frameRef = useRef<number | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
 
@@ -248,13 +249,77 @@ function Step1Embeddings({
         vertexColors: true,
         sizeAttenuation: true,
         transparent: true,
-        opacity: 0.8,
+        opacity: showLabels ? 0 : 0.8,
         blending: THREE.AdditiveBlending,
       })
 
       const points = new THREE.Points(geometry, material)
       scene.add(points)
       pointsRef.current = points
+      // #endregion
+      // #region LABELS
+      if (showLabels) {
+        const labelGroup = new THREE.Group()
+
+        const createTextSprite = (text: string, importance: number) => {
+          const canvas = document.createElement('canvas')
+          const context = canvas.getContext('2d')
+          if (!context) return null
+
+          const fontSize = 36
+          const padding = 12
+          const font = `400 ${fontSize}px sans-serif`
+          context.font = font
+          const textWidth = Math.ceil(context.measureText(text).width)
+
+          canvas.width = textWidth + padding * 2
+          canvas.height = fontSize + padding * 2
+
+          context.font = font
+          const normalized = Math.min(1, Math.max(0, (importance - 0.1) / 0.5))
+          const colorFactor = 0.5 + normalized * 0.5
+          const alpha = 0.35 + colorFactor * 0.55
+          const strokeAlpha = 0.2 + colorFactor * 0.4
+          context.fillStyle = `rgba(255, 255, 255, ${alpha})`
+          context.strokeStyle = `rgba(15, 23, 42, ${strokeAlpha})`
+          context.lineWidth = 3
+          context.strokeText(text, padding, fontSize + padding / 2)
+          context.fillStyle = `rgba(15, 23, 42, ${alpha})`
+          context.fillText(text, padding, fontSize + padding / 2)
+
+          const texture = new THREE.CanvasTexture(canvas)
+          texture.minFilter = THREE.LinearFilter
+          const spriteMaterial = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            opacity: alpha,
+          })
+          const sprite = new THREE.Sprite(spriteMaterial)
+          const scale = 0.006 + colorFactor * 0.006
+          sprite.scale.set(canvas.width * scale, canvas.height * scale, 1)
+          return sprite
+        }
+
+        processedData.points.forEach((point) => {
+          const importance = point.importance
+          const percent = (importance * 100).toFixed(1)
+          const sprite = createTextSprite(
+            `${point.text} (${percent}%)`,
+            importance,
+          )
+          if (!sprite) return
+          sprite.position.set(
+            point.position[0],
+            point.position[1],
+            point.position[2],
+          )
+          sprite.userData.pointIndex = point.originalIndex
+          labelGroup.add(sprite)
+        })
+
+        scene.add(labelGroup)
+        labelGroupRef.current = labelGroup
+      }
       // #endregion
       // #region LINES
       const lineMaterial = new THREE.LineBasicMaterial({
@@ -295,16 +360,28 @@ function Step1Embeddings({
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 
         raycaster.setFromCamera(mouse, camera)
-        const intersects = raycaster.intersectObject(points)
+        let hoveredIndex: number | null = null
 
-        if (intersects.length > 0) {
-          const index = intersects[0].index
-          if (index !== undefined) {
-            setHoveredPoint(index)
+        if (showLabels && labelGroupRef.current) {
+          const labelIntersects = raycaster.intersectObjects(
+            labelGroupRef.current.children,
+            true,
+          )
+          if (labelIntersects.length > 0) {
+            const labelIndex = labelIntersects[0].object.userData.pointIndex
+            if (typeof labelIndex === 'number') hoveredIndex = labelIndex
           }
-        } else {
-          setHoveredPoint(null)
         }
+
+        if (hoveredIndex === null) {
+          const intersects = raycaster.intersectObject(points)
+          if (intersects.length > 0) {
+            const index = intersects[0].index
+            if (index !== undefined) hoveredIndex = index
+          }
+        }
+
+        setHoveredPoint(hoveredIndex)
       }
 
       const handleClick = (event: MouseEvent) => {
@@ -315,14 +392,28 @@ function Step1Embeddings({
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 
         raycaster.setFromCamera(mouse, camera)
-        const intersects = raycaster.intersectObject(points)
+        let selectedIndex: number | null = null
 
-        if (intersects.length > 0) {
-          const index = intersects[0].index
-          if (index !== undefined) {
-            setSelectedPoint(index)
+        if (showLabels && labelGroupRef.current) {
+          const labelIntersects = raycaster.intersectObjects(
+            labelGroupRef.current.children,
+            true,
+          )
+          if (labelIntersects.length > 0) {
+            const labelIndex = labelIntersects[0].object.userData.pointIndex
+            if (typeof labelIndex === 'number') selectedIndex = labelIndex
           }
         }
+
+        if (selectedIndex === null) {
+          const intersects = raycaster.intersectObject(points)
+          if (intersects.length > 0) {
+            const index = intersects[0].index
+            if (index !== undefined) selectedIndex = index
+          }
+        }
+
+        if (selectedIndex !== null) setSelectedPoint(selectedIndex)
       }
 
       renderer.domElement.addEventListener('mousemove', handleMouseMove)
@@ -383,6 +474,17 @@ function Step1Embeddings({
         controlsRef.current = null
       }
 
+      if (labelGroupRef.current) {
+        labelGroupRef.current.traverse((child) => {
+          if (child instanceof THREE.Sprite) {
+            const spriteMaterial = child.material as THREE.SpriteMaterial
+            spriteMaterial.map?.dispose()
+            spriteMaterial.dispose()
+          }
+        })
+        labelGroupRef.current = null
+      }
+
       if (renderer) {
         renderer.dispose()
       }
@@ -399,7 +501,7 @@ function Step1Embeddings({
         renderer.domElement.removeEventListener('click', handleClick)
       }
     }
-  }, [processedData, colorScheme, pointSize])
+  }, [processedData, colorScheme, pointSize, showLabels])
 
   useEffect(() => {
     if (!sceneRef.current || !rendererRef.current || !cameraRef.current) return
