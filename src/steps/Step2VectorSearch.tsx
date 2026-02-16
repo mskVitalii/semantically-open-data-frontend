@@ -70,6 +70,14 @@ function Step2VectorSearch({ datasets }: Step2VectorSearchType) {
   ) => {
     if (field.type === 'Numeric') {
       const numField = field as FieldNumeric
+      const quantileItems = [
+        ['Min', numField.quantile_0_min],
+        ['25%', numField.quantile_25],
+        ['Median', numField.quantile_50_median],
+        ['75%', numField.quantile_75],
+        ['Max', numField.quantile_100_max],
+      ].filter(([, value]) => value !== undefined && value !== null)
+
       return (
         <Stack gap="xs">
           {numField.mean && (
@@ -96,50 +104,18 @@ function Step2VectorSearch({ datasets }: Step2VectorSearchType) {
           <Text size="xs" fw={600} c="blue">
             Quantiles
           </Text>
-          <SimpleGrid cols={2} spacing="xs">
-            {numField.quantile_0_min && (
-              <Group gap="xs">
-                <Text size="xs" c="dimmed">
-                  Min:
-                </Text>
-                <Text size="xs">{formatNumber(numField.quantile_0_min)}</Text>
-              </Group>
-            )}
-            {numField.quantile_25 && (
-              <Group gap="xs">
-                <Text size="xs" c="dimmed">
-                  25%:
-                </Text>
-                <Text size="xs">{formatNumber(numField.quantile_25)}</Text>
-              </Group>
-            )}
-            {numField.quantile_50_median && (
-              <Group gap="xs">
-                <Text size="xs" c="dimmed">
-                  Median:
-                </Text>
-                <Text size="xs">
-                  {formatNumber(numField.quantile_50_median)}
-                </Text>
-              </Group>
-            )}
-            {numField.quantile_75 && (
-              <Group gap="xs">
-                <Text size="xs" c="dimmed">
-                  75%:
-                </Text>
-                <Text size="xs">{formatNumber(numField.quantile_75)}</Text>
-              </Group>
-            )}
-            {numField.quantile_100_max && (
-              <Group gap="xs">
-                <Text size="xs" c="dimmed">
-                  Max:
-                </Text>
-                <Text size="xs">{formatNumber(numField.quantile_100_max)}</Text>
-              </Group>
-            )}
-          </SimpleGrid>
+          {quantileItems.length > 0 && (
+            <Group gap="md" wrap="wrap">
+              {quantileItems.map(([label, value]) => (
+                <Group key={label} gap={4} wrap="nowrap">
+                  <Text size="xs" c="dimmed">
+                    {label}:
+                  </Text>
+                  <Text size="xs">{formatNumber(value as number)}</Text>
+                </Group>
+              ))}
+            </Group>
+          )}
           {numField.distribution && (
             <Box>
               <Text size="xs" c="dimmed">

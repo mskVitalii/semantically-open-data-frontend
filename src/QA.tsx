@@ -98,8 +98,16 @@ const QA: React.FC = () => {
         'use_llm_interpretation',
         params.useLlmInterpretation.toString(),
       )
+      queryParams.append('search_mode', params.searchMode)
+      queryParams.append('limit', params.limit.toString())
+      queryParams.append('use_reranker', params.useReranker.toString())
+      if (params.useReranker) {
+        queryParams.append(
+          'reranker_candidates',
+          params.rerankerCandidates.toString(),
+        )
+      }
 
-      // Добавляем фильтры если они есть
       if (params.filters.countries && params.filters.countries.length > 0) {
         params.filters.countries.forEach((country) =>
           queryParams.append('country', country),
@@ -159,7 +167,12 @@ const QA: React.FC = () => {
             )
           else if (parsed.step === 1)
             setRQ((prev) => {
-              parsed.data.forEach((q) => (prev[q.question_hash].embeddings = q))
+              parsed.data.forEach((q) => {
+                if (!q.embedding_model && params.filters.embedding_model) {
+                  q.embedding_model = params.filters.embedding_model
+                }
+                prev[q.question_hash].embeddings = q
+              })
               return prev
             })
           else if (parsed.step === 2)

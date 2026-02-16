@@ -4,10 +4,15 @@ import {
   Group,
   Loader,
   MultiSelect,
+  NumberInput,
   Paper,
   RangeSlider,
+  SegmentedControl,
   Select,
+  Slider,
   Stack,
+  Switch,
+  Text,
   TextInput,
   Tooltip,
 } from '@mantine/core'
@@ -55,58 +60,22 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
   const [selectedCountries, setSelectedCountries] = useState<string[]>([])
   const [selectedCities, setSelectedCities] = useState<string[]>([])
   const [selectedStates, setSelectedStates] = useState<string[]>([])
-  const [yearRange, setYearRange] = useState<[number, number]>([2000, 2024])
+  const [yearRange, setYearRange] = useState<[number, number]>([1990, 2026])
   const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState<
     string | null
-  >('baai-bge-m3')
+  >('jinaai-jina-embeddings-v3')
   const [useMultiQuery, setUseMultiQuery] = useState<boolean>(false)
   const [useLlmInterpretation, setUseLlmInterpretation] =
-    useState<boolean>(false)
+    useState<boolean>(true)
+  const [searchMode, setSearchMode] = useState<'sparse' | 'dense' | 'hybrid'>(
+    'dense',
+  )
+  const [limit, setLimit] = useState<number>(25)
+  const [useReranker, setUseReranker] = useState<boolean>(false)
+  const [rerankerCandidates, setRerankerCandidates] = useState<number>(50)
 
-  // Filter states based on selected cities
-  const getAvailableStates = () => {
-    if (selectedCities.length === 0) return GERMAN_STATES
-    const statesFromCities = new Set(
-      selectedCities.map(
-        (cityValue) => GERMAN_CITIES.find((c) => c.value === cityValue)?.state,
-      ),
-    )
-    return GERMAN_STATES.filter((state) => statesFromCities.has(state.value))
-  }
-
-  // Filter cities based on selected states
-  const getAvailableCities = () => {
-    if (selectedStates.length === 0) return GERMAN_CITIES
-    return GERMAN_CITIES.filter((city) => selectedStates.includes(city.state))
-  }
-
-  // Handle state selection with city filtering
-  const handleStateChange = (states: string[]) => {
-    setSelectedStates(states)
-    // Remove cities that don't belong to selected states
-    const validCities = selectedCities.filter((cityValue) => {
-      const city = GERMAN_CITIES.find((c) => c.value === cityValue)
-      return states.includes(city?.state || '')
-    })
-    setSelectedCities(validCities)
-  }
-
-  // Handle city selection with state filtering
-  const handleCityChange = (cities: string[]) => {
-    setSelectedCities(cities)
-    // Update states based on selected cities
-    if (cities.length === 0) {
-      setSelectedStates([])
-    } else {
-      const statesFromCities = new Set(
-        cities.map(
-          (cityValue) =>
-            GERMAN_CITIES.find((c) => c.value === cityValue)?.state,
-        ),
-      )
-      setSelectedStates(Array.from(statesFromCities) as string[])
-    }
-  }
+  const clampRerankerCandidates = (value: number) =>
+    Math.min(200, Math.max(10, value))
 
   const handleSearch = () => {
     onSearch({
@@ -121,6 +90,10 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
       },
       useMultiQuery,
       useLlmInterpretation,
+      searchMode,
+      limit,
+      useReranker,
+      rerankerCandidates: clampRerankerCandidates(rerankerCandidates),
     })
   }
 
@@ -162,9 +135,9 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
           <MultiSelect
             label="State (Land)"
             placeholder="Choose states"
-            data={getAvailableStates()}
+            data={GERMAN_STATES}
             value={selectedStates}
-            onChange={handleStateChange}
+            onChange={setSelectedStates}
             disabled={isLoading}
             clearable
             searchable
@@ -172,9 +145,9 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
           <MultiSelect
             label="City (Stadt)"
             placeholder="Choose cities"
-            data={getAvailableCities()}
+            data={GERMAN_CITIES}
             value={selectedCities}
-            onChange={handleCityChange}
+            onChange={setSelectedCities}
             disabled={isLoading}
             clearable
             searchable
@@ -214,7 +187,79 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
           searchable
         />
 
-        <Group>
+        <Stack gap="xs">
+          <Text size="sm" fw={500}>
+            Search mode
+          </Text>
+          <SegmentedControl
+            fullWidth
+            data={[
+              { label: 'Sparse', value: 'sparse' },
+              { label: 'Dense', value: 'dense' },
+              { label: 'Hybrid', value: 'hybrid' },
+            ]}
+            value={searchMode}
+            onChange={(value) =>
+              setSearchMode(value as 'sparse' | 'dense' | 'hybrid')
+            }
+            disabled={isLoading}
+          />
+        </Stack>
+
+        <NumberInput
+          label="Limit"
+          placeholder="Results limit"
+          value={limit}
+          onChange={(value) => {
+            if (typeof value === 'number') setLimit(value)
+          }}
+          min={1}
+          max={200}
+          clampBehavior="strict"
+          disabled={isLoading}
+        />
+
+        <Stack gap={4}>
+          <Text size="sm" fw={500}>
+            Reranker
+          </Text>
+          <Switch
+            label="Use reranker"
+            description="Re-rank results with cross-encoder"
+            checked={useReranker}
+            onChange={(e) => setUseReranker(e.currentTarget.checked)}
+            disabled={isLoading}
+          />
+        </Stack>
+
+        {useReranker && (
+          <Stack gap="xs" mb="xl">
+            <Text size="sm" fw={500}>
+              Reranker candidates
+            </Text>
+            <div style={{ marginTop: '3rem', marginInline: '2rem' }}>
+              <Slider
+                label={(value) => `${value}`}
+                value={rerankerCandidates}
+                onChange={(value) => setRerankerCandidates(value)}
+                min={10}
+                max={200}
+                step={1}
+                disabled={isLoading}
+                marks={[
+                  { value: 10, label: '10' },
+                  { value: 50, label: '50' },
+                  { value: 100, label: '100' },
+                  { value: 150, label: '150' },
+                  { value: 200, label: '200' },
+                ]}
+                labelAlwaysOn
+              />
+            </div>
+          </Stack>
+        )}
+
+        <Group justify="flex-end" mb="md">
           <Checkbox
             label="Use multi-query"
             checked={useMultiQuery}
@@ -227,9 +272,7 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
             onChange={(e) => setUseLlmInterpretation(e.currentTarget.checked)}
             disabled={isLoading}
           />
-        </Group>
 
-        <Group justify="flex-end">
           {isLoading ? (
             <Tooltip label="Stop streaming">
               <Button

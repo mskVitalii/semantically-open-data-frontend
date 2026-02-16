@@ -1,89 +1,26 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react'
 import {
-  Card,
-  Text,
-  Select,
-  Group,
-  Stack,
-  Paper,
   Badge,
-  Slider,
-  Switch,
   Button,
+  Card,
+  Group,
+  Paper,
+  Select,
+  Slider,
+  Stack,
+  Switch,
+  Text,
 } from '@mantine/core'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import type { Step1EmbeddingsType } from '../types'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import type { Step1EmbeddingsType } from '../types'
 
 type Step1EmbeddingsProps = {
   embeddings: Step1EmbeddingsType
 }
 
-function simplePCA(vectors: number[][], targetDim: number = 3): number[][] {
-  if (vectors.length === 0) return []
-
-  const n = vectors.length
-  const d = vectors[0].length
-
-  const mean = new Array(d).fill(0)
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < d; j++) {
-      mean[j] += vectors[i][j] / n
-    }
-  }
-
-  const centered = vectors.map((v) => v.map((val, j) => val - mean[j]))
-
-  const cov: number[][] = Array.from({ length: d }, () => new Array(d).fill(0))
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < d; j++) {
-      for (let k = 0; k < d; k++) {
-        cov[j][k] += (centered[i][j] * centered[i][k]) / (n - 1)
-      }
-    }
-  }
-
-  function powerIteration(A: number[][], numIter: number = 100): number[] {
-    let b = Array.from({ length: A.length }, () => Math.random())
-    let norm = Math.sqrt(b.reduce((s, x) => s + x * x, 0))
-    b = b.map((x) => x / norm)
-
-    for (let iter = 0; iter < numIter; iter++) {
-      const Ab = new Array(A.length).fill(0)
-      for (let i = 0; i < A.length; i++) {
-        for (let j = 0; j < A.length; j++) {
-          Ab[i] += A[i][j] * b[j]
-        }
-      }
-      norm = Math.sqrt(Ab.reduce((s, x) => s + x * x, 0))
-      b = Ab.map((x) => x / norm)
-    }
-    return b
-  }
-
-  const components: number[][] = []
-  const A = cov.map((row) => row.slice())
-  for (let m = 0; m < targetDim; m++) {
-    const eigenvector = powerIteration(A, 200)
-    components.push(eigenvector)
-
-    const eigenvalue = eigenvector.reduce(
-      (s, x, i) =>
-        s + x * A[i].reduce((t, aij, j) => t + aij * eigenvector[j], 0),
-      0,
-    )
-
-    for (let i = 0; i < d; i++) {
-      for (let j = 0; j < d; j++) {
-        A[i][j] -= eigenvalue * eigenvector[i] * eigenvector[j]
-      }
-    }
-  }
-
-  return centered.map((vector) =>
-    components.map((comp) => vector.reduce((s, v, i) => s + v * comp[i], 0)),
-  )
-}
+// TODO: TSV route for 3D embeddings
+// TODO: props for the request
 
 function Step1Embeddings({ embeddings }: Step1EmbeddingsProps) {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -103,71 +40,37 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps) {
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null)
 
   const processedData = useMemo(() => {
-    if (!embeddings) return null
-    if (!embeddings.embeddings || embeddings.embeddings.length === 0)
-      return null
+    if (!embeddings?.points_3d || embeddings.points_3d.length === 0) return null
 
-    const vector = embeddings.embeddings
+    const points3d = embeddings.points_3d
+    const tokens = embeddings.tokens ?? []
+    const magnitudes = points3d.map((pos) =>
+      Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2),
+    )
+    const maxMagnitude = Math.max(...magnitudes, 1)
 
-    const segmentSize = Math.floor(vector.length / 20)
-    const points: Array<{
-      position: number[]
-      text: string
-      fullText: string
-      importance: number
-      originalIndex: number
-    }> = []
+    const points = points3d.map((pos, i) => {
+      const label = tokens[i] ?? `Token ${i + 1}`
 
-    for (let i = 0; i < 20 && i * segmentSize < vector.length; i++) {
-      const segmentStart = i * segmentSize
-      const segmentEnd = Math.min((i + 1) * segmentSize, vector.length)
-      const segment = vector.slice(segmentStart, segmentEnd)
-
-      const x = segment[0] || 0
-      const y = segment[1] || 0
-      const z = segment[2] || 0
-
-      const norm = Math.sqrt(segment.reduce((sum, val) => sum + val * val, 0))
-
-      points.push({
-        position: [x * 5, y * 5, z * 5],
-        text: `Segment ${i + 1}`,
-        fullText: `${embeddings.question} (segment ${i + 1})`,
-        importance: norm / Math.sqrt(segment.length),
+      return {
+        position: [pos[0] * 5, pos[1] * 5, pos[2] * 5],
+        text: label,
+        fullText: label,
+        importance: magnitudes[i] / maxMagnitude,
         originalIndex: i,
-      })
-    }
-
-    if (vector.length > 3) {
-      const chunks: number[][] = []
-      const chunkSize = 3
-      for (let i = 0; i < vector.length - chunkSize; i += chunkSize) {
-        chunks.push(vector.slice(i, i + chunkSize))
       }
+    })
 
-      if (chunks.length > 3) {
-        const reduced = simplePCA(chunks, 3)
-        reduced.forEach((pos, i) => {
-          points.push({
-            position: [pos[0] * 5, pos[1] * 5, pos[2] * 5],
-            text: `Point ${i + 1}`,
-            fullText: embeddings.question,
-            importance: 0.5 + Math.random() * 0.5,
-            originalIndex: points.length + i,
-          })
-        })
-      }
-    }
-
-    const _processedData = {
+    return {
       points,
       question: embeddings.question,
       reason: embeddings.reason,
       hash: embeddings.question_hash,
     }
-    console.log(_processedData)
-    return _processedData
   }, [embeddings])
+
+  const modelLabel =
+    embeddings.embedding_model || embeddings.embedder_model || 'Embedding model'
 
   useEffect(() => {
     if (!mountRef.current || !processedData) return
@@ -487,7 +390,8 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps) {
               3D Embeddings Visualization
             </Text>
             <Badge color="blue" variant="light">
-              BGE-M3 | Dimensions: {embeddings.embeddings.length}
+              {modelLabel} | Tokens: {embeddings.tokens.length} | Dimension:{' '}
+              {embeddings.dimension}
             </Badge>
           </Group>
 
@@ -624,7 +528,7 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps) {
           </Stack>
         </Paper>
 
-        {selectedPoint !== null && processedData && (
+        {showLabels && selectedPoint !== null && processedData && (
           <Paper
             shadow="md"
             p="md"
@@ -662,7 +566,7 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps) {
           </Paper>
         )}
 
-        {hoveredPoint !== null && processedData && (
+        {showLabels && hoveredPoint !== null && processedData && (
           <div
             style={{
               position: 'absolute',

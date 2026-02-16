@@ -10,7 +10,11 @@ export type LLMQuestionWithEmbeddings = {
   question: string
   reason: string
   question_hash: string
-  embeddings: number[]
+  tokens: string[]
+  points_3d: number[][]
+  dimension: number
+  embedding_model?: string
+  embedder_model?: string
 }
 
 export type LLMQuestionWithDatasets = {
@@ -146,4 +150,8 @@ export type SearchParams = {
   filters: SearchFilters
   useMultiQuery: boolean
   useLlmInterpretation: boolean
+  searchMode: 'sparse' | 'dense' | 'hybrid'
+  limit: number
+  useReranker: boolean
+  rerankerCandidates: number
 }
