@@ -13,16 +13,19 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import type { Step0ResearchQuestionsType, Step1EmbeddingsType } from '../types'
+import type { Step1EmbeddingsType } from '../types'
 
 type Step1EmbeddingsProps = {
   embeddings: Step1EmbeddingsType
+  questionText: string
+  embedderModel?: string
 }
 
-// TODO: TSV route for 3D embeddings
-// TODO: props for the request
-
-function Step1Embeddings({ embeddings }: Step1EmbeddingsProps & Step0ResearchQuestionsType) {
+function Step1Embeddings({
+  embeddings,
+  questionText,
+  embedderModel = 'jinaai-jina-embeddings-v3',
+}: Step1EmbeddingsProps) {
   console.log('embeddings', embeddings)
   const mountRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -39,12 +42,80 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps & Step0ResearchQue
   const [autoRotate, setAutoRotate] = useState(true)
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null)
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null)
+  const [remoteEmbeddings, setRemoteEmbeddings] = useState<{
+    tokens: string[]
+    points_3d: number[][]
+    dimension: number
+    embedder?: string
+  } | null>(null)
+  const [isEmbeddingLoading, setIsEmbeddingLoading] = useState<boolean>(false)
+  const [embeddingError, setEmbeddingError] = useState<string>('')
+
+  useEffect(() => {
+    const text = questionText || embeddings.question
+    if (!text) return
+
+    const controller = new AbortController()
+    setIsEmbeddingLoading(true)
+    setEmbeddingError('')
+
+    fetch(`${import.meta.env.VITE_API_URL}/v1/embeddings/embed_tokens`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        embedder_model: embedderModel,
+      }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const message = await response.text()
+          throw new Error(message || 'Failed to fetch embeddings')
+        }
+        return response.json()
+      })
+      .then((data) => {
+        setRemoteEmbeddings({
+          tokens: data.tokens ?? [],
+          points_3d: data.points_3d ?? [],
+          dimension: data.dimension ?? 0,
+          embedder: data.embedder,
+        })
+      })
+      .catch((error: Error) => {
+        if (error.name === 'AbortError') return
+        setEmbeddingError(error.message)
+      })
+      .finally(() => {
+        setIsEmbeddingLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [questionText, embeddings.question, embedderModel])
+
+  const embeddingSource = useMemo(() => {
+    if (remoteEmbeddings && remoteEmbeddings.points_3d.length > 0) {
+      return {
+        ...embeddings,
+        tokens: remoteEmbeddings.tokens,
+        points_3d: remoteEmbeddings.points_3d,
+        dimension: remoteEmbeddings.dimension || embeddings.dimension,
+        embedder_model: remoteEmbeddings.embedder,
+      }
+    }
+    return embeddings
+  }, [embeddings, remoteEmbeddings])
 
   const processedData = useMemo(() => {
-    if (!embeddings?.points_3d || embeddings.points_3d.length === 0) return null
+    if (!embeddingSource?.points_3d || embeddingSource.points_3d.length === 0)
+      return null
 
-    const points3d = embeddings.points_3d
-    const tokens = embeddings.tokens ?? []
+    const points3d = embeddingSource.points_3d
+    const tokens = embeddingSource.tokens ?? []
     const magnitudes = points3d.map((pos) =>
       Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2),
     )
@@ -64,14 +135,19 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps & Step0ResearchQue
 
     return {
       points,
-      question: embeddings.question,
-      reason: embeddings.reason,
-      hash: embeddings.question_hash,
+      question: questionText || embeddingSource.question,
+      reason: embeddingSource.reason,
+      hash: embeddingSource.question_hash,
     }
-  }, [embeddings])
+  }, [embeddingSource, questionText])
 
   const modelLabel =
-    embeddings.embedding_model || embeddings.embedder_model || 'Embedding model'
+    embedderModel ||
+    embeddings.embedding_model ||
+    embeddings.embedder_model ||
+    'Embedding model'
+  const tokenCount = embeddingSource.tokens?.length ?? 0
+  const embeddingDimension = embeddingSource.dimension ?? 0
 
   useEffect(() => {
     if (!mountRef.current || !processedData) return
@@ -377,7 +453,13 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps & Step0ResearchQue
     console.log(embeddings, processedData)
     return (
       <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Text>No data to display</Text>
+        <Text>
+          {isEmbeddingLoading
+            ? 'Loading embeddings...'
+            : embeddingError
+              ? `Failed to load embeddings: ${embeddingError}`
+              : 'No data to display'}
+        </Text>
       </Card>
     )
   }
@@ -391,10 +473,20 @@ function Step1Embeddings({ embeddings }: Step1EmbeddingsProps & Step0ResearchQue
               3D Embeddings Visualization
             </Text>
             <Badge color="blue" variant="light">
-              {modelLabel} | Tokens: {embeddings.tokens.length} | Dimension:{' '}
-              {embeddings.dimension}
+              {modelLabel} | Tokens: {tokenCount} | Dimension:{' '}
+              {embeddingDimension}
             </Badge>
           </Group>
+          {embeddingError && (
+            <Text size="xs" c="red">
+              {embeddingError}
+            </Text>
+          )}
+          {isEmbeddingLoading && !embeddingError && (
+            <Text size="xs" c="dimmed">
+              Fetching embeddings from local service...
+            </Text>
+          )}
 
           <Group gap="xl" grow>
             <Stack gap="xs">

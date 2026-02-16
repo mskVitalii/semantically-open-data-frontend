@@ -9,9 +9,11 @@ import Step3Interpretation from './Step3Interpretation'
 function Step0ResearchQuestion({
   index,
   steps,
+  embedderModel,
 }: {
   index: number
   steps: ResearchQuestionStepsType
+  embedderModel?: string
 }) {
   const [openEmbeddings, setOpenEmbeddings] = useState<string[]>()
   const question = steps.research_question
@@ -60,6 +62,8 @@ function Step0ResearchQuestion({
                     tokens: steps.embeddings.tokens?.slice(0, 64),
                     points_3d: steps.embeddings.points_3d?.slice(0, 64),
                   }}
+                  embedderModel={embedderModel}
+                  questionText={question.question}
                 />
               )}
             </Accordion.Panel>

@@ -63,6 +63,7 @@ const QA: React.FC = () => {
   const [rq, setRQ] = useState<Record<string, ResearchQuestionStepsType>>({})
   const rqArray = useMemo(() => Object.entries(rq), [rq])
   const [question, setQuestion] = useState<string>()
+  const [embedderModel, setEmbedderModel] = useState<string | undefined>()
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -239,6 +240,7 @@ const QA: React.FC = () => {
   const handleSubmit = (params: SearchParams): void => {
     if (!isLoading && params.question.trim()) {
       setQuestion(params.question.trim())
+      setEmbedderModel(params.filters.embedding_model)
       handleStream(params)
     }
   }
@@ -369,6 +371,7 @@ const QA: React.FC = () => {
                           key={question_hash}
                           index={i}
                           steps={question}
+                          embedderModel={embedderModel}
                         />
                       ))}
                     </Stack>
