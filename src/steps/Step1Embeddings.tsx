@@ -244,18 +244,22 @@ function Step1Embeddings({
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
       geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
 
-      const material = new THREE.PointsMaterial({
-        size: pointSize,
-        vertexColors: true,
-        sizeAttenuation: true,
-        transparent: true,
-        opacity: showLabels ? 0 : 0.8,
-        blending: THREE.AdditiveBlending,
-      })
+      if (!showLabels) {
+        const material = new THREE.PointsMaterial({
+          size: pointSize,
+          vertexColors: true,
+          sizeAttenuation: true,
+          transparent: true,
+          opacity: 0.8,
+          blending: THREE.AdditiveBlending,
+        })
 
-      const points = new THREE.Points(geometry, material)
-      scene.add(points)
-      pointsRef.current = points
+        const points = new THREE.Points(geometry, material)
+        scene.add(points)
+        pointsRef.current = points
+      } else {
+        pointsRef.current = null
+      }
       // #endregion
       // #region LABELS
       if (showLabels) {
@@ -369,8 +373,8 @@ function Step1Embeddings({
           }
         }
 
-        if (hoveredIndex === null) {
-          const intersects = raycaster.intersectObject(points)
+        if (hoveredIndex === null && pointsRef.current) {
+          const intersects = raycaster.intersectObject(pointsRef.current)
           if (intersects.length > 0) {
             const index = intersects[0].index
             if (index !== undefined) hoveredIndex = index
@@ -401,8 +405,8 @@ function Step1Embeddings({
           }
         }
 
-        if (selectedIndex === null) {
-          const intersects = raycaster.intersectObject(points)
+        if (selectedIndex === null && pointsRef.current) {
+          const intersects = raycaster.intersectObject(pointsRef.current)
           if (intersects.length > 0) {
             const index = intersects[0].index
             if (index !== undefined) selectedIndex = index
