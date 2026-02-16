@@ -279,11 +279,7 @@ function Step1Embeddings({
           const normalized = Math.min(1, Math.max(0, (importance - 0.1) / 0.5))
           const colorFactor = 0.5 + normalized * 0.5
           const alpha = 0.35 + colorFactor * 0.55
-          const strokeAlpha = 0.2 + colorFactor * 0.4
-          context.fillStyle = `rgba(255, 255, 255, ${alpha})`
-          context.strokeStyle = `rgba(15, 23, 42, ${strokeAlpha})`
-          context.lineWidth = 3
-          context.strokeText(text, padding, fontSize + padding / 2)
+          context.clearRect(0, 0, canvas.width, canvas.height)
           context.fillStyle = `rgba(15, 23, 42, ${alpha})`
           context.fillText(text, padding, fontSize + padding / 2)
 
