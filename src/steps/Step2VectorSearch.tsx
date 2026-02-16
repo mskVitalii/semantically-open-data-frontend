@@ -11,6 +11,7 @@ import {
   ScrollArea,
   SimpleGrid,
   Stack,
+  Tabs,
   Text,
   ThemeIcon,
   Tooltip,
@@ -22,20 +23,29 @@ import {
   IconHash,
   IconLetterCase,
   IconLink,
+  IconMap,
   IconMapPin,
   IconTag,
   IconTrendingUp,
   IconUser,
 } from '@tabler/icons-react'
 import React from 'react'
+import { GeoDatasetMiniMap } from '../components/GeoDatasetMiniMap'
+import { GeoVisualization } from '../components/GeoVisualization'
 import type {
+  DatasetResponse,
   FieldDate,
   FieldNumeric,
   FieldString,
-  Step2VectorSearchType,
 } from '../types'
 
-function Step2VectorSearch({ datasets }: Step2VectorSearchType) {
+function Step2VectorSearch({ datasets }: { datasets: DatasetResponse[] }) {
+  // DEBUG: Log incoming datasets
+  console.log('Step2VectorSearch received datasets:', datasets)
+  console.log('First dataset:', datasets[0])
+  console.log('First dataset metadata:', datasets[0]?.metadata)
+  console.log('First dataset web_services:', datasets[0]?.web_services)
+
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -210,284 +220,402 @@ function Step2VectorSearch({ datasets }: Step2VectorSearchType) {
         </Group>
       </Group>
 
-      <ScrollArea className="w-full" type="scroll">
-        <Stack gap="lg">
-          {datasets.map((dataset, index) => (
-            <Card
-              key={dataset.metadata.id}
-              shadow="sm"
-              padding="lg"
-              radius="md"
-              withBorder
-              className="hover:shadow-md transition-shadow duration-200 gap-3"
-            >
-              {/* Header with Score */}
-              <Group justify="space-between" className="mb-3">
-                <Group gap="xs">
-                  <ThemeIcon size="lg" radius="md" variant="light" color="blue">
-                    <Text size="sm" fw={700}>
-                      #{index + 1}
-                    </Text>
-                  </ThemeIcon>
-                  <Text size="lg" fw={600} className="max-w-2xl truncate">
-                    {dataset.metadata.title}
-                  </Text>
-                </Group>
-                <Tooltip label="Relevance Score">
-                  <Badge
-                    size="lg"
-                    variant="gradient"
-                    gradient={{ from: 'teal', to: 'lime', deg: 105 }}
-                    leftSection={<IconTrendingUp size={14} />}
-                  >
-                    {(dataset.score * 100).toFixed(1)}%
-                  </Badge>
-                </Tooltip>
-              </Group>
+      <Tabs variant="default" defaultValue="map">
+        <Tabs.List>
+          <Tabs.Tab
+            value="map"
+            leftSection={<IconMap size={16} />}
+            disabled={!datasets.some((d) => d.metadata.is_geo)}
+          >
+            Map View
+          </Tabs.Tab>
+          <Tabs.Tab value="list" leftSection={<IconDatabase size={16} />}>
+            List View ({datasets.length})
+          </Tabs.Tab>
+        </Tabs.List>
 
-              {/* Description */}
-              {dataset.metadata.description && (
-                <Text size="sm" c="dimmed" className="mb-3 line-clamp-2">
-                  {dataset.metadata.description}
-                </Text>
-              )}
+        <Tabs.Panel value="map" pt="md">
+          <GeoVisualization
+            datasets={datasets.map((d) => ({
+              id: d.metadata.id,
+              title: d.metadata.title,
+              is_geo: d.metadata.is_geo,
+              web_services: d.web_services,
+              city: d.metadata.city,
+              state: d.metadata.state,
+              country: d.metadata.country,
+              score: d.score,
+            }))}
+          />
+        </Tabs.Panel>
 
-              {/* Metadata Grid */}
-              <Paper
-                p="sm"
-                radius="sm"
+        <Tabs.Panel value="list" pt="md">
+          <Stack gap="lg">
+            {datasets.map((dataset, index) => (
+              <Card
+                key={dataset.metadata.id}
+                shadow="sm"
+                padding="lg"
+                radius="md"
                 withBorder
-                className="mb-3 bg-gray-50 dark:bg-gray-900"
+                className="hover:shadow-md transition-shadow duration-200 gap-3"
               >
-                <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
-                  {dataset.metadata.organization && (
-                    <Group gap="xs" wrap="nowrap">
-                      <IconUser size={16} className="text-gray-500" />
-                      <Text size="xs" c="dimmed">
-                        Org:
+                {/* Header with Score */}
+                <Group justify="space-between" className="mb-3">
+                  <Group gap="xs">
+                    <ThemeIcon
+                      size="lg"
+                      radius="md"
+                      variant="light"
+                      color="blue"
+                    >
+                      <Text size="sm" fw={700}>
+                        #{index + 1}
                       </Text>
-                      <Text size="xs" fw={500} className="truncate">
-                        {dataset.metadata.organization}
-                      </Text>
-                    </Group>
-                  )}
-
-                  {dataset.metadata.author && (
-                    <Group gap="xs" wrap="nowrap">
-                      <IconUser size={16} className="text-gray-500" />
-                      <Text size="xs" c="dimmed">
-                        Author:
-                      </Text>
-                      <Text size="xs" fw={500} className="truncate">
-                        {dataset.metadata.author}
-                      </Text>
-                    </Group>
-                  )}
-
-                  {(dataset.metadata.city ||
-                    dataset.metadata.state ||
-                    dataset.metadata.country) && (
-                    <Group gap="xs" wrap="nowrap">
-                      <IconMapPin size={16} className="text-gray-500" />
-                      <Text size="xs" c="dimmed">
-                        Location:
-                      </Text>
-                      <Text size="xs" fw={500} className="truncate">
-                        {[
-                          dataset.metadata.city,
-                          dataset.metadata.state,
-                          dataset.metadata.country,
-                        ]
-                          .filter(Boolean)
-                          .join(', ')}
-                      </Text>
-                    </Group>
-                  )}
-
-                  {dataset.metadata.metadata_created && (
-                    <Group gap="xs" wrap="nowrap">
-                      <IconCalendar size={16} className="text-gray-500" />
-                      <Text size="xs" c="dimmed">
-                        Created:
-                      </Text>
-                      <Text size="xs" fw={500}>
-                        {formatDate(dataset.metadata.metadata_created)}
-                      </Text>
-                    </Group>
-                  )}
-
-                  {dataset.metadata.metadata_modified && (
-                    <Group gap="xs" wrap="nowrap">
-                      <IconCalendar size={16} className="text-gray-500" />
-                      <Text size="xs" c="dimmed">
-                        Modified:
-                      </Text>
-                      <Text size="xs" fw={500}>
-                        {formatDate(dataset.metadata.metadata_modified)}
-                      </Text>
-                    </Group>
-                  )}
-
-                  {dataset.metadata.url && (
-                    <Group gap="xs" wrap="nowrap">
-                      <IconLink size={16} className="text-gray-500" />
-                      <Anchor
-                        href={dataset.metadata.url}
-                        target="_blank"
-                        size="xs"
-                        className="truncate"
-                      >
-                        View Dataset
-                      </Anchor>
-                    </Group>
-                  )}
-                </SimpleGrid>
-              </Paper>
-
-              {/* Tags */}
-              {dataset.metadata.tags && dataset.metadata.tags.length > 0 && (
-                <Group gap={4}>
-                  <IconTag size={16} className="text-gray-500" />
-                  {dataset.metadata.tags.map((tag) => (
-                    <Badge key={tag} size="sm" variant="dot" color="blue">
-                      {tag}
-                    </Badge>
-                  ))}
-                </Group>
-              )}
-
-              {/* Groups */}
-              {dataset.metadata.groups &&
-                dataset.metadata.groups.length > 0 && (
-                  <Group gap={4} className="mb-3">
-                    <Text size="xs" c="dimmed">
-                      Groups:
+                    </ThemeIcon>
+                    <Text size="lg" fw={600} className="max-w-2xl truncate">
+                      {dataset.metadata.title}
                     </Text>
-                    {Array.from(new Set(dataset.metadata.groups)).map(
-                      (group) => (
+                    {dataset.metadata.is_geo && (
+                      <Tooltip label="Geographic dataset with WFS services">
                         <Badge
-                          key={group}
                           size="sm"
-                          variant="outline"
-                          color="grape"
+                          variant="light"
+                          color="teal"
+                          leftSection={<IconMap size={12} />}
                         >
-                          {group}
+                          GEO
                         </Badge>
-                      ),
+                      </Tooltip>
                     )}
+                  </Group>
+                  <Tooltip label="Relevance Score">
+                    <Badge
+                      size="lg"
+                      variant="gradient"
+                      gradient={{ from: 'teal', to: 'lime', deg: 105 }}
+                      leftSection={<IconTrendingUp size={14} />}
+                    >
+                      {(dataset.score * 100).toFixed(1)}%
+                    </Badge>
+                  </Tooltip>
+                </Group>
+
+                {/* Description */}
+                {dataset.metadata.description && (
+                  <Text size="sm" c="dimmed" className="mb-3 line-clamp-2">
+                    {dataset.metadata.description}
+                  </Text>
+                )}
+
+                {/* Metadata Grid */}
+                <Paper
+                  p="sm"
+                  radius="sm"
+                  withBorder
+                  className="mb-3 bg-gray-50"
+                >
+                  <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
+                    {dataset.metadata.organization && (
+                      <Group gap="xs" wrap="nowrap">
+                        <IconUser size={16} className="text-gray-500" />
+                        <Text size="xs" c="dimmed">
+                          Org:
+                        </Text>
+                        <Text size="xs" fw={500} className="truncate">
+                          {dataset.metadata.organization}
+                        </Text>
+                      </Group>
+                    )}
+
+                    {dataset.metadata.author && (
+                      <Group gap="xs" wrap="nowrap">
+                        <IconUser size={16} className="text-gray-500" />
+                        <Text size="xs" c="dimmed">
+                          Author:
+                        </Text>
+                        <Text size="xs" fw={500} className="truncate">
+                          {dataset.metadata.author}
+                        </Text>
+                      </Group>
+                    )}
+
+                    {/* Location */}
+                    {(dataset.metadata.city ||
+                      dataset.metadata.state ||
+                      dataset.metadata.country) && (
+                      <Group gap="xs" wrap="nowrap">
+                        <IconMapPin size={16} className="text-gray-500" />
+                        <Text size="xs" c="dimmed">
+                          Location:
+                        </Text>
+                        <Text size="xs" fw={500} className="truncate">
+                          {[
+                            dataset.metadata.city,
+                            dataset.metadata.state,
+                            dataset.metadata.country,
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </Text>
+                      </Group>
+                    )}
+
+                    {dataset.metadata.metadata_created && (
+                      <Group gap="xs" wrap="nowrap">
+                        <IconCalendar size={16} className="text-gray-500" />
+                        <Text size="xs" c="dimmed">
+                          Created:
+                        </Text>
+                        <Text size="xs" fw={500}>
+                          {formatDate(dataset.metadata.metadata_created)}
+                        </Text>
+                      </Group>
+                    )}
+
+                    {dataset.metadata.metadata_modified && (
+                      <Group gap="xs" wrap="nowrap">
+                        <IconCalendar size={16} className="text-gray-500" />
+                        <Text size="xs" c="dimmed">
+                          Modified:
+                        </Text>
+                        <Text size="xs" fw={500}>
+                          {formatDate(dataset.metadata.metadata_modified)}
+                        </Text>
+                      </Group>
+                    )}
+
+                    {dataset.metadata.url && (
+                      <Group gap="xs" wrap="nowrap">
+                        <IconLink size={16} className="text-gray-500" />
+                        <Anchor
+                          href={dataset.metadata.url}
+                          target="_blank"
+                          size="xs"
+                          className="truncate"
+                        >
+                          View Dataset
+                        </Anchor>
+                      </Group>
+                    )}
+                  </SimpleGrid>
+                </Paper>
+
+                {/* Tags */}
+                {dataset.metadata.tags && dataset.metadata.tags.length > 0 && (
+                  <Group gap={4}>
+                    <IconTag size={16} className="text-gray-500" />
+                    {dataset.metadata.tags.map((tag) => (
+                      <Badge key={tag} size="sm" variant="dot" color="blue">
+                        {tag}
+                      </Badge>
+                    ))}
                   </Group>
                 )}
 
-              {/* Fields Accordion */}
-              {dataset.metadata.fields &&
-                Object.keys(dataset.metadata.fields).length > 0 && (
-                  <Accordion
-                    variant="contained"
-                    radius="md"
-                    chevronPosition="right"
+                {/* Web Services */}
+                {dataset.web_services && dataset.web_services.length > 0 && (
+                  <Box
+                    className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm"
+                    style={{
+                      padding: '20px',
+                      marginTop: '24px',
+                      marginBottom: '12px',
+                    }}
                   >
-                    <Accordion.Item value="fields">
-                      <Accordion.Control icon={<IconChartBar size={20} />}>
-                        <Group gap="xs">
-                          <Text fw={500}>Dataset Fields</Text>
-                          <Badge size="sm" variant="light" color="cyan">
-                            {Object.keys(dataset.metadata.fields).length} fields
+                    <Group gap="xs" className="mb-3">
+                      <IconLink size={18} className="text-blue-600" />
+                      <Text size="sm" fw={700} c="blue">
+                        Web Services ({dataset.web_services.length})
+                      </Text>
+                    </Group>
+                    <Stack gap="sm">
+                      {dataset.web_services.map((service, serviceIdx) => (
+                        <Box
+                          key={serviceIdx}
+                          className="bg-white rounded-md border border-gray-200 hover:shadow-sm transition-shadow"
+                          style={{ padding: '16px' }}
+                        >
+                          <Group justify="space-between" gap="xs">
+                            <Stack gap={3} className="flex-1">
+                              <Text size="sm" fw={600} c="gray">
+                                {service.name}
+                              </Text>
+                              <Badge size="sm" variant="light" color="blue">
+                                {service.format}
+                              </Badge>
+                              {service.description && (
+                                <Text size="xs" c="dimmed" lineClamp={1}>
+                                  {service.description}
+                                </Text>
+                              )}
+                            </Stack>
+                            <Anchor
+                              href={service.url}
+                              target="_blank"
+                              size="sm"
+                              fw={600}
+                              className="whitespace-nowrap"
+                            >
+                              View →
+                            </Anchor>
+                          </Group>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Mini Map for Geographic Datasets */}
+                {dataset.metadata.is_geo &&
+                  dataset.web_services &&
+                  dataset.web_services.length > 0 && (
+                    <Box className="mt-3">
+                      <Text size="xs" fw={600} c="dark" className="mb-2">
+                        Data Preview
+                      </Text>
+                      <GeoDatasetMiniMap
+                        title={dataset.metadata.title}
+                        web_services={dataset.web_services}
+                        height={300}
+                      />
+                    </Box>
+                  )}
+
+                {/* Groups */}
+                {dataset.metadata.groups &&
+                  dataset.metadata.groups.length > 0 && (
+                    <Group gap={4} className="mb-3">
+                      <Text size="xs" c="dimmed">
+                        Groups:
+                      </Text>
+                      {Array.from(new Set(dataset.metadata.groups)).map(
+                        (group) => (
+                          <Badge
+                            key={group}
+                            size="sm"
+                            variant="outline"
+                            color="grape"
+                          >
+                            {group}
                           </Badge>
-                        </Group>
-                      </Accordion.Control>
-                      <Accordion.Panel>
-                        <ScrollArea className="max-h-96 overflow-y-scroll!">
-                          <Stack gap="md">
-                            {Object.entries(dataset.metadata.fields).map(
-                              ([fieldName, field]) => (
-                                <Paper
-                                  key={fieldName}
-                                  p="md"
-                                  radius="sm"
-                                  withBorder
-                                >
-                                  <Group
-                                    justify="space-between"
-                                    className="mb-2"
+                        ),
+                      )}
+                    </Group>
+                  )}
+
+                {/* Fields Accordion */}
+                {dataset.metadata.fields &&
+                  Object.keys(dataset.metadata.fields).length > 0 && (
+                    <Accordion
+                      variant="contained"
+                      radius="md"
+                      chevronPosition="right"
+                    >
+                      <Accordion.Item value="fields">
+                        <Accordion.Control icon={<IconChartBar size={20} />}>
+                          <Group gap="xs">
+                            <Text fw={500}>Dataset Fields</Text>
+                            <Badge size="sm" variant="light" color="cyan">
+                              {Object.keys(dataset.metadata.fields).length}{' '}
+                              fields
+                            </Badge>
+                          </Group>
+                        </Accordion.Control>
+                        <Accordion.Panel>
+                          <ScrollArea className="max-h-96 overflow-y-scroll!">
+                            <Stack gap="md">
+                              {Object.entries(dataset.metadata.fields).map(
+                                ([fieldName, field]) => (
+                                  <Paper
+                                    key={fieldName}
+                                    p="md"
+                                    radius="sm"
+                                    withBorder
                                   >
-                                    <Group gap="xs">
-                                      {getFieldIcon(field.type)}
-                                      <Text fw={600} size="sm">
-                                        {fieldName}
-                                      </Text>
-                                      <Badge
-                                        size="xs"
-                                        variant="light"
-                                        color="blue"
-                                      >
-                                        {field.type}
-                                      </Badge>
-                                    </Group>
-                                    <Group gap="xs">
-                                      <Tooltip label="Unique Values">
+                                    <Group
+                                      justify="space-between"
+                                      className="mb-2"
+                                    >
+                                      <Group gap="xs">
+                                        {getFieldIcon(field.type)}
+                                        <Text fw={600} size="sm">
+                                          {fieldName}
+                                        </Text>
                                         <Badge
-                                          size="sm"
-                                          variant="outline"
-                                          color="green"
+                                          size="xs"
+                                          variant="light"
+                                          color="blue"
                                         >
-                                          {field.unique_count.toLocaleString()}{' '}
-                                          unique
+                                          {field.type}
                                         </Badge>
-                                      </Tooltip>
-                                      {field.null_count > 0 && (
-                                        <Tooltip label="Null Values">
+                                      </Group>
+                                      <Group gap="xs">
+                                        <Tooltip label="Unique Values">
                                           <Badge
                                             size="sm"
                                             variant="outline"
-                                            color="red"
+                                            color="green"
                                           >
-                                            {field.null_count.toLocaleString()}{' '}
-                                            nulls
+                                            {field.unique_count.toLocaleString()}{' '}
+                                            unique
                                           </Badge>
                                         </Tooltip>
-                                      )}
+                                        {field.null_count > 0 && (
+                                          <Tooltip label="Null Values">
+                                            <Badge
+                                              size="sm"
+                                              variant="outline"
+                                              color="red"
+                                            >
+                                              {field.null_count.toLocaleString()}{' '}
+                                              nulls
+                                            </Badge>
+                                          </Tooltip>
+                                        )}
+                                      </Group>
                                     </Group>
-                                  </Group>
 
-                                  {/* Null percentage bar */}
-                                  {field.null_count > 0 &&
-                                    field.unique_count > 0 && (
-                                      <Box className="mb-2">
-                                        <Text
-                                          size="xs"
-                                          c="dimmed"
-                                          className="mb-1"
-                                        >
-                                          Data Completeness
-                                        </Text>
-                                        <Progress
-                                          value={
-                                            ((field.unique_count -
-                                              field.null_count) /
-                                              field.unique_count) *
-                                            100
-                                          }
-                                          size="sm"
-                                          radius="xl"
-                                          color="teal"
-                                        />
-                                      </Box>
-                                    )}
+                                    {/* Null percentage bar */}
+                                    {field.null_count > 0 &&
+                                      field.unique_count > 0 && (
+                                        <Box className="mb-2">
+                                          <Text
+                                            size="xs"
+                                            c="dimmed"
+                                            className="mb-1"
+                                          >
+                                            Data Completeness
+                                          </Text>
+                                          <Progress
+                                            value={
+                                              ((field.unique_count -
+                                                field.null_count) /
+                                                field.unique_count) *
+                                              100
+                                            }
+                                            size="sm"
+                                            radius="xl"
+                                            color="teal"
+                                          />
+                                        </Box>
+                                      )}
 
-                                  {renderFieldDetails(field)}
-                                </Paper>
-                              ),
-                            )}
-                          </Stack>
-                        </ScrollArea>
-                      </Accordion.Panel>
-                    </Accordion.Item>
-                  </Accordion>
-                )}
-            </Card>
-          ))}
-        </Stack>
-      </ScrollArea>
+                                    {renderFieldDetails(field)}
+                                  </Paper>
+                                ),
+                              )}
+                            </Stack>
+                          </ScrollArea>
+                        </Accordion.Panel>
+                      </Accordion.Item>
+                    </Accordion>
+                  )}
+              </Card>
+            ))}
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   )
 }

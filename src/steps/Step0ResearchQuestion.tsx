@@ -71,7 +71,9 @@ function Step0ResearchQuestion({
           <Accordion.Item value="datasets">
             <Accordion.Control>Datasets</Accordion.Control>
             <Accordion.Panel>
-              {steps.datasets && <Step2VectorSearch {...steps.datasets} />}
+              {steps.datasets && (
+                <Step2VectorSearch datasets={steps.datasets} />
+              )}
             </Accordion.Panel>
           </Accordion.Item>
         </Accordion>

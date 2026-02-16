@@ -27,6 +27,13 @@ export type LLMQuestionWithDatasets = {
 // #endregion
 
 // #region datasets_metadata.py
+export type WebService = {
+  name: string
+  url: string
+  format: string
+  description?: string | null
+}
+
 export type DatasetMetadata = {
   id: string
   title: string
@@ -41,6 +48,8 @@ export type DatasetMetadata = {
   groups?: string[] | null
   url?: string | null
   author?: string | null
+  is_geo?: boolean
+  web_services?: WebService[] | null
 }
 
 export type Field = {
@@ -81,6 +90,7 @@ export type DatasetMetadataWithFields = DatasetMetadata & {
 export type DatasetResponse = {
   score: number
   metadata: DatasetMetadataWithFields
+  web_services?: WebService[] | null
 }
 
 export type DatasetSearchResponse = {
@@ -133,7 +143,7 @@ export type Step3InterpretationType = {
 export type ResearchQuestionStepsType = {
   research_question?: LLMQuestion
   embeddings?: Step1EmbeddingsType
-  datasets?: Step2VectorSearchType
+  datasets?: DatasetResponse[]
   interpretation?: Step3InterpretationType
 }
 

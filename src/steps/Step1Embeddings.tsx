@@ -26,7 +26,7 @@ function Step1Embeddings({
   questionText,
   embedderModel = 'jinaai-jina-embeddings-v3',
 }: Step1EmbeddingsProps) {
-  console.log('embeddings', embeddings)
+  // console.log('embeddings', embeddings)
   const mountRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)

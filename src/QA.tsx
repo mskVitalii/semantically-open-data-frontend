@@ -151,7 +151,7 @@ const QA: React.FC = () => {
         }
 
         const parsed = parseSSELine(event.data)
-
+        console.log('Parsed SSE line:', parsed)
         if (parsed) {
           setResponse((prev) => [...prev, parsed])
 
@@ -176,12 +176,20 @@ const QA: React.FC = () => {
               })
               return prev
             })
-          else if (parsed.step === 2)
+          else if (parsed.step === 2) {
+            console.log(
+              'QA.tsx Step 2 - received datasets:',
+              parsed.data.datasets,
+            )
+            console.log(
+              'QA.tsx Step 2 - first dataset web_services:',
+              parsed.data.datasets[0]?.metadata?.web_services,
+            )
             setRQ((prev) => {
-              prev[parsed.data.question_hash].datasets = parsed.data
+              prev[parsed.data.question_hash].datasets = parsed.data.datasets
               return prev
             })
-          else if (parsed.step === 3)
+          } else if (parsed.step === 3)
             setRQ((prev) => {
               prev[parsed.data.question_hash].interpretation = parsed.data
               return prev
@@ -256,7 +264,7 @@ const QA: React.FC = () => {
       shadow="lg"
       padding="xl"
       radius="md"
-      className="min-h-screen w-screen bg-gray-50 p-4"
+      className="min-h-screen w-screen bg-white p-4"
     >
       <Stack>
         {/* Header */}
@@ -313,12 +321,7 @@ const QA: React.FC = () => {
 
             {rqArray.length > 0 && (
               <div className="w-full mx-auto p-4">
-                <Card
-                  shadow="md"
-                  radius="lg"
-                  className="bg-white dark:bg-slate-900"
-                  withBorder
-                >
+                <Card shadow="md" radius="lg" className="bg-white" withBorder>
                   {/* Header Section */}
                   <div className="mb-6">
                     <Group align="center" mb="md">

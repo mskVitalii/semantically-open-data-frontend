@@ -313,7 +313,7 @@ function Step3Interpretation({ answer }: Step3InterpretationType) {
             >
               <Group
                 justify="space-between"
-                className="px-3 py-2 bg-gray-100 dark:bg-gray-800 border-b"
+                className="px-3 py-2 bg-gray-100 border-b"
               >
                 <Group gap="xs">
                   <IconTerminal2 size={16} className="text-gray-600" />
@@ -465,7 +465,7 @@ function Step3Interpretation({ answer }: Step3InterpretationType) {
         className="relative overflow-hidden"
       >
         {/* Decorative gradient background */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl" />
 
         {/* Main Answer Content */}
         <Group gap="xs" className="mb-4!">
