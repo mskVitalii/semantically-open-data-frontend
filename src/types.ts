@@ -64,6 +64,7 @@ export type FieldNumeric = Field & {
 
 export type FieldString = Field & {
   type: 'String'
+  top_values?: Record<string, number> | null
 }
 
 export type FieldDate = Field & {

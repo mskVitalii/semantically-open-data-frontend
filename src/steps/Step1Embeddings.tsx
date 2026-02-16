@@ -13,7 +13,7 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import type { Step1EmbeddingsType } from '../types'
+import type { Step0ResearchQuestionsType, Step1EmbeddingsType } from '../types'
 
 type Step1EmbeddingsProps = {
   embeddings: Step1EmbeddingsType
@@ -22,7 +22,8 @@ type Step1EmbeddingsProps = {
 // TODO: TSV route for 3D embeddings
 // TODO: props for the request
 
-function Step1Embeddings({ embeddings }: Step1EmbeddingsProps) {
+function Step1Embeddings({ embeddings }: Step1EmbeddingsProps & Step0ResearchQuestionsType) {
+  console.log('embeddings', embeddings)
   const mountRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)

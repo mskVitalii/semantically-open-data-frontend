@@ -57,8 +57,8 @@ function Step0ResearchQuestion({
                 <Step1Embeddings
                   embeddings={{
                     ...steps.embeddings,
-                    tokens: steps.embeddings.tokens.slice(0, 64),
-                    points_3d: steps.embeddings.points_3d.slice(0, 64),
+                    tokens: steps.embeddings.tokens?.slice(0, 64),
+                    points_3d: steps.embeddings.points_3d?.slice(0, 64),
                   }}
                 />
               )}

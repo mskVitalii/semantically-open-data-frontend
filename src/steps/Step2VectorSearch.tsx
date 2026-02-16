@@ -128,6 +128,30 @@ function Step2VectorSearch({ datasets }: Step2VectorSearchType) {
           )}
         </Stack>
       )
+    } else if (field.type === 'String') {
+      const stringField = field as FieldString
+      const topValues = stringField.top_values
+        ? Object.entries(stringField.top_values)
+        : []
+
+      if (topValues.length === 0) return null
+
+      return (
+        <Stack gap="xs">
+          <Text size="xs" fw={600} c="blue">
+            Unique values
+          </Text>
+          <Group gap={6} wrap="wrap">
+            {topValues.map(([value, count]) => (
+              <Tooltip key={value} label={`${count.toLocaleString()} rows`}>
+                <Badge size="sm" variant="light" color="gray">
+                  {value}
+                </Badge>
+              </Tooltip>
+            ))}
+          </Group>
+        </Stack>
+      )
     } else if (field.type === 'Date') {
       const dateField = field as FieldDate
       return (
