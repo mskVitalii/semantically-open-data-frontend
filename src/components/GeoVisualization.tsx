@@ -1,8 +1,17 @@
-import { Badge, Box, Group, Loader, Stack, Text, Tooltip } from '@mantine/core'
+import {
+  Badge,
+  Box,
+  Checkbox,
+  Group,
+  Loader,
+  Stack,
+  Text,
+  Tooltip,
+} from '@mantine/core'
 import { IconAlertTriangle, IconMap } from '@tabler/icons-react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WebService } from '../types'
 
 interface GeoVisualizationProps {
@@ -32,126 +41,190 @@ export function GeoVisualization({ datasets }: GeoVisualizationProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedDatasetIds, setSelectedDatasetIds] = useState<Set<string>>(
+    new Set(),
+  )
   const layersRef = useRef<Record<string, L.GeoJSON>>({})
+  const loadedIdsRef = useRef<Set<string>>(new Set())
 
   const geoDatasets = datasets.filter((d) => d.is_geo && d.web_services?.length)
 
   console.log('GeoVisualization - all datasets:', datasets)
   console.log('GeoVisualization - filtered geoDatasets:', geoDatasets)
-  // datasets.forEach((d, i) => {
-  //   console.log(`Dataset ${i}:`, {
-  //     title: d.title,
-  //     is_geo: d.is_geo,
-  //     web_services: d.web_services,
-  //     hasWebServices: d.web_services?.length,
-  //   })
-  // })
+
+  const toggleDataset = useCallback(
+    async (datasetId: string) => {
+      const dataset = geoDatasets.find((d) => d.id === datasetId)
+      if (!dataset || !mapRef.current) return
+
+      const isSelected = selectedDatasetIds.has(datasetId)
+
+      if (isSelected) {
+        // Remove layer from map
+        const layer = layersRef.current[datasetId]
+        if (layer) {
+          mapRef.current.removeLayer(layer)
+          delete layersRef.current[datasetId]
+        }
+        loadedIdsRef.current.delete(datasetId)
+
+        setSelectedDatasetIds((prev) => {
+          const next = new Set(prev)
+          next.delete(datasetId)
+          return next
+        })
+      } else {
+        // Add layer to map
+        setSelectedDatasetIds((prev) => new Set(prev).add(datasetId))
+
+        const webService = dataset.web_services?.[0]
+        if (!webService || webService.format !== 'WFS') {
+          console.warn(`${dataset.title} - No valid WFS service`)
+          return
+        }
+
+        setLoading(true)
+        setError(null)
+
+        try {
+          const baseUrl = webService.url.split('?')[0]
+          const capUrl = `${baseUrl}?service=WFS&version=2.0.0&request=GetCapabilities`
+
+          const capResponse = await fetch(capUrl)
+          if (!capResponse.ok) {
+            throw new Error(`HTTP ${capResponse.status}`)
+          }
+
+          const capText = await capResponse.text()
+
+          let featureNameMatch = capText.match(
+            /<FeatureType>[^<]*<Name>([^<]+)<\/Name>/i,
+          )
+          if (!featureNameMatch) {
+            featureNameMatch = capText.match(/<Name>([^<]+)<\/Name>/i)
+          }
+          if (!featureNameMatch) {
+            featureNameMatch = capText.match(/<wfs:Name>([^<]+)<\/wfs:Name>/i)
+          }
+
+          if (!featureNameMatch) {
+            throw new Error('Could not parse WFS feature type')
+          }
+
+          const featureType = featureNameMatch[1]
+          const getFeatureUrl = `${baseUrl}?service=WFS&version=2.0.0&request=GetFeature&typeNames=${encodeURIComponent(featureType)}&outputFormat=application/json&maxfeatures=100`
+
+          const featureResponse = await fetch(getFeatureUrl)
+          if (!featureResponse.ok) {
+            throw new Error(
+              `Failed to fetch features: HTTP ${featureResponse.status}`,
+            )
+          }
+
+          const geojsonData = await featureResponse.json()
+
+          if (!mapRef.current) return
+
+          const featureCount = geojsonData.features?.length || 0
+          console.log(`${dataset.title} - Got ${featureCount} features`)
+
+          if (featureCount === 0) {
+            throw new Error('No features returned from WFS service')
+          }
+
+          if (featureCount > 300) {
+            throw new Error(
+              `Too many features (${featureCount}). Dataset too large. Try a different dataset.`,
+            )
+          }
+
+          const datasetIndex = geoDatasets.findIndex((d) => d.id === datasetId)
+          const color = COLORS[datasetIndex % COLORS.length]
+          const geoJsonLayer = L.geoJSON(geojsonData, {
+            style: {
+              color,
+              weight: 2,
+              opacity: 0.7,
+              fillOpacity: 0.2,
+            },
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties
+              const propHtml = Object.entries(props)
+                .map(
+                  ([key, value]) =>
+                    `<strong>${key}:</strong> ${String(value).substring(0, 100)}`,
+                )
+                .join('<br />')
+
+              layer.bindPopup(
+                `<div><strong>${dataset.title}</strong><br />${propHtml}</div>`,
+              )
+            },
+          })
+
+          geoJsonLayer.addTo(mapRef.current)
+          layersRef.current[datasetId] = geoJsonLayer
+          loadedIdsRef.current.add(datasetId)
+
+          const bounds = geoJsonLayer.getBounds()
+          if (bounds && bounds.isValid()) {
+            // Small delay to ensure map is rendered
+            setTimeout(() => {
+              if (mapRef.current) {
+                mapRef.current.fitBounds(bounds, {
+                  padding: [50, 50],
+                  maxZoom: 14,
+                })
+              }
+            }, 100)
+          }
+
+          console.log(`${dataset.title} - Successfully loaded on map`)
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : 'Unknown error'
+          console.error(`${dataset.title} - Error:`, err)
+          setError(`${dataset.title}: ${errMsg}`)
+
+          // Remove from selection on error
+          setSelectedDatasetIds((prev) => {
+            const next = new Set(prev)
+            next.delete(datasetId)
+            return next
+          })
+        } finally {
+          setLoading(false)
+        }
+      }
+    },
+    [geoDatasets, selectedDatasetIds],
+  )
 
   useEffect(() => {
-    if (!containerRef.current || geoDatasets.length === 0) return
+    if (!containerRef.current) return
 
     const initialLat = 52.52
     const initialLng = 13.405
 
     if (!mapRef.current) {
-      mapRef.current = L.map(containerRef.current).setView(
-        [initialLat, initialLng],
-        10,
-      )
+      mapRef.current = L.map(containerRef.current, {
+        preferCanvas: true,
+        zoomControl: true,
+        scrollWheelZoom: false,
+        doubleClickZoom: true,
+      }).setView([initialLat, initialLng], 10)
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
-        maxNativeZoom: 18,
+        minZoom: 2,
+        subdomains: ['a', 'b', 'c'],
+        keepBuffer: 4,
+        updateWhenIdle: false,
+        updateWhenZooming: false,
+        crossOrigin: true,
       }).addTo(mapRef.current)
     }
-
-    const loadLayers = async () => {
-      if (!mapRef.current) return
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        for (let i = 0; i < geoDatasets.length; i++) {
-          const dataset = geoDatasets[i]
-          const webService = dataset.web_services?.[0]
-
-          if (!webService || webService.format !== 'WFS') continue
-
-          try {
-            const capUrl = `${webService.url}?service=WFS&version=2.0.0&request=GetCapabilities`
-            const capResponse = await fetch(capUrl)
-
-            if (!capResponse.ok) {
-              console.warn(`Failed to fetch capabilities for ${dataset.title}`)
-              continue
-            }
-
-            const capText = await capResponse.text()
-            const featureNameMatch = capText.match(/<Name>([^<]+)<\/Name>/)
-
-            if (!featureNameMatch) {
-              console.warn(`No feature types found for ${dataset.title}`)
-              continue
-            }
-
-            const featureType = featureNameMatch[1]
-            const getFeatureUrl = `${webService.url}?service=WFS&version=2.0.0&request=GetFeature&typeNames=${encodeURIComponent(featureType)}&outputFormat=application/json&maxfeatures=1000`
-
-            const featureResponse = await fetch(getFeatureUrl)
-
-            if (!featureResponse.ok) {
-              console.warn(`Failed to fetch features for ${dataset.title}`)
-              continue
-            }
-
-            const geojsonData = await featureResponse.json()
-
-            const color = COLORS[i % COLORS.length]
-            const geoJsonLayer = L.geoJSON(geojsonData, {
-              style: {
-                color,
-                weight: 2,
-                opacity: 0.7,
-                fillOpacity: 0.2,
-              },
-              onEachFeature: (feature, layer) => {
-                const props = feature.properties
-                const propHtml = Object.entries(props)
-                  .map(
-                    ([key, value]) =>
-                      `<strong>${key}:</strong> ${String(value).substring(0, 100)}`,
-                  )
-                  .join('<br />')
-
-                layer.bindPopup(
-                  `<div><strong>${dataset.title}</strong><br />${propHtml}</div>`,
-                )
-              },
-            })
-
-            geoJsonLayer.addTo(mapRef.current)
-            layersRef.current[dataset.id] = geoJsonLayer
-
-            if (i === 0 && geoJsonLayer.getBounds().isValid()) {
-              mapRef.current.fitBounds(geoJsonLayer.getBounds(), {
-                padding: [50, 50],
-              })
-            }
-          } catch (err) {
-            console.error(`Error loading WFS for ${dataset.title}:`, err)
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadLayers()
-  }, [geoDatasets])
+  }, [])
 
   if (geoDatasets.length === 0) {
     return (
@@ -180,8 +253,13 @@ export function GeoVisualization({ datasets }: GeoVisualizationProps) {
             Geographic Datasets
           </Badge>
           <Badge size="lg" variant="filled" color="gray">
-            {geoDatasets.length} Datasets
+            {geoDatasets.length} available
           </Badge>
+          {selectedDatasetIds.size > 0 && (
+            <Badge size="lg" variant="filled" color="teal">
+              {selectedDatasetIds.size} on map
+            </Badge>
+          )}
         </Group>
         {loading && <Loader size="sm" />}
       </Group>
@@ -208,16 +286,31 @@ export function GeoVisualization({ datasets }: GeoVisualizationProps) {
         className="bg-gray-50 p-4 rounded-md border border-gray-200 mt-2"
       >
         <Text size="sm" fw={600} c="dark" className="mb-2">
-          Loaded Datasets
+          Select Datasets to Display ({selectedDatasetIds.size} selected)
         </Text>
         {geoDatasets.map((dataset, index) => (
-          <Group key={dataset.id} gap="xs">
+          <Group key={dataset.id} gap="xs" wrap="nowrap">
+            <Checkbox
+              checked={selectedDatasetIds.has(dataset.id)}
+              onChange={() => toggleDataset(dataset.id)}
+              size="sm"
+              styles={{
+                input: {
+                  cursor: 'pointer',
+                },
+              }}
+            />
             <Box
               className="w-3 h-3 rounded shrink-0"
               style={{ backgroundColor: COLORS[index % COLORS.length] }}
             />
             <Tooltip label={dataset.title} multiline maw={300}>
-              <Text size="sm" className="truncate flex-1">
+              <Text
+                size="sm"
+                className="truncate flex-1"
+                style={{ cursor: 'pointer' }}
+                onClick={() => toggleDataset(dataset.id)}
+              >
                 {dataset.title}
               </Text>
             </Tooltip>
