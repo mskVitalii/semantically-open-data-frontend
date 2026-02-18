@@ -73,6 +73,8 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
   const [limit, setLimit] = useState<number>(25)
   const [useReranker, setUseReranker] = useState<boolean>(false)
   const [rerankerCandidates, setRerankerCandidates] = useState<number>(50)
+  const [useMongoData, setUseMongoData] = useState<boolean>(true)
+  const [mongoDataLimit, setMongoDataLimit] = useState<number>(30)
 
   const clampRerankerCandidates = (value: number) =>
     Math.min(200, Math.max(10, value))
@@ -94,6 +96,8 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
       limit,
       useReranker,
       rerankerCandidates: clampRerankerCandidates(rerankerCandidates),
+      useMongoData,
+      mongoDataLimit,
     })
   }
 
@@ -252,6 +256,46 @@ function SearchForm({ onSearch, onCancel, isLoading }: SearchFormProps) {
                   { value: 100, label: '100' },
                   { value: 150, label: '150' },
                   { value: 200, label: '200' },
+                ]}
+                labelAlwaysOn
+              />
+            </div>
+          </Stack>
+        )}
+
+        <Stack gap={4}>
+          <Text size="sm" fw={500}>
+            MongoDB Data
+          </Text>
+          <Switch
+            label="Enable MongoDB data retrieval step"
+            description="Fetch actual data rows from MongoDB (step 3)"
+            checked={useMongoData}
+            onChange={(e) => setUseMongoData(e.currentTarget.checked)}
+            disabled={isLoading}
+          />
+        </Stack>
+
+        {useMongoData && (
+          <Stack gap="xs" mb="xl">
+            <Text size="sm" fw={500}>
+              MongoDB Data Limit
+            </Text>
+            <div style={{ marginTop: '3rem', marginInline: '2rem' }}>
+              <Slider
+                label={(value) => `${value}`}
+                value={mongoDataLimit}
+                onChange={(value) => setMongoDataLimit(value)}
+                min={1}
+                max={1000}
+                step={1}
+                disabled={isLoading}
+                marks={[
+                  { value: 1, label: '1' },
+                  { value: 100, label: '100' },
+                  { value: 250, label: '250' },
+                  { value: 500, label: '500' },
+                  { value: 1000, label: '1000' },
                 ]}
                 labelAlwaysOn
               />

@@ -26,7 +26,8 @@ import type {
   Step0ResearchQuestionsType,
   Step1EmbeddingsType,
   Step2VectorSearchType,
-  Step3InterpretationType,
+  Step3DatasetsType,
+  Step4InterpretationType,
 } from './types'
 
 type StreamResponse =
@@ -50,7 +51,13 @@ type StreamResponse =
       step: 3
       sub_step: number
       status: 'OK'
-      data: Step3InterpretationType
+      data: Step3DatasetsType
+    }
+  | {
+      step: 4
+      sub_step: number
+      status: 'OK'
+      data: Step4InterpretationType
     }
   | {
       step: number
@@ -107,6 +114,10 @@ const QA: React.FC = () => {
           'reranker_candidates',
           params.rerankerCandidates.toString(),
         )
+      }
+      queryParams.append('use_mongo_data', params.useMongoData.toString())
+      if (params.useMongoData) {
+        queryParams.append('mongo_data_limit', params.mongoDataLimit.toString())
       }
 
       if (params.filters.countries && params.filters.countries.length > 0) {
@@ -190,6 +201,11 @@ const QA: React.FC = () => {
               return prev
             })
           } else if (parsed.step === 3)
+            setRQ((prev) => {
+              prev[parsed.data.question_hash].datasets_data = parsed.data
+              return prev
+            })
+          else if (parsed.step === 4)
             setRQ((prev) => {
               prev[parsed.data.question_hash].interpretation = parsed.data
               return prev

@@ -151,7 +151,7 @@ function parseMarkdown(text: string): ParsedElement[] {
     .flat()
 }
 
-function Step3Interpretation({ answer }: Step4InterpretationType) {
+function Step4Interpretation({ answer }: Step4InterpretationType) {
   const parsedContent = useMemo(() => parseMarkdown(answer), [answer])
 
   // Group consecutive list items
@@ -465,7 +465,7 @@ function Step3Interpretation({ answer }: Step4InterpretationType) {
         className="relative overflow-hidden"
       >
         {/* Decorative gradient background */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl pointer-events-none" />
 
         {/* Main Answer Content */}
         <Group gap="xs" className="mb-4!">
@@ -512,4 +512,4 @@ function Step3Interpretation({ answer }: Step4InterpretationType) {
   )
 }
 
-export default React.memo(Step3Interpretation)
+export default React.memo(Step4Interpretation)

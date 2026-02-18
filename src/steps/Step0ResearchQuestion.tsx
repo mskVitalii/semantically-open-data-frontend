@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { ResearchQuestionStepsType } from '../types'
 import Step1Embeddings from './Step1Embeddings'
 import Step2VectorSearch from './Step2VectorSearch'
-import Step3Interpretation from './Step3Interpretation'
+import Step4Interpretation from './Step4Interpretation'
 
 function Step0ResearchQuestion({
   index,
@@ -72,13 +72,16 @@ function Step0ResearchQuestion({
             <Accordion.Control>Datasets</Accordion.Control>
             <Accordion.Panel>
               {steps.datasets && (
-                <Step2VectorSearch datasets={steps.datasets} />
+                <Step2VectorSearch
+                  datasets={steps.datasets}
+                  datasetsData={steps.datasets_data?.datasets_data}
+                />
               )}
             </Accordion.Panel>
           </Accordion.Item>
         </Accordion>
         {steps.interpretation && (
-          <Step3Interpretation {...steps.interpretation} />
+          <Step4Interpretation {...steps.interpretation} />
         )}
       </Stack>
     </Paper>

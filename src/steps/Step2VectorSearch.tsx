@@ -11,6 +11,7 @@ import {
   ScrollArea,
   SimpleGrid,
   Stack,
+  Table,
   Tabs,
   Text,
   ThemeIcon,
@@ -25,6 +26,7 @@ import {
   IconLink,
   IconMap,
   IconMapPin,
+  IconTable,
   IconTag,
   IconTrendingUp,
   IconUser,
@@ -34,12 +36,19 @@ import { GeoDatasetMiniMap } from '../components/GeoDatasetMiniMap'
 import { GeoVisualization } from '../components/GeoVisualization'
 import type {
   DatasetResponse,
+  DatasetSample,
   FieldDate,
   FieldNumeric,
   FieldString,
 } from '../types'
 
-function Step2VectorSearch({ datasets }: { datasets: DatasetResponse[] }) {
+function Step2VectorSearch({
+  datasets,
+  datasetsData,
+}: {
+  datasets: DatasetResponse[]
+  datasetsData?: Record<string, DatasetSample>
+}) {
   // DEBUG: Log incoming datasets
   console.log('Step2VectorSearch received datasets:', datasets)
   console.log('First dataset:', datasets[0])
@@ -53,6 +62,41 @@ function Step2VectorSearch({ datasets }: { datasets: DatasetResponse[] }) {
       month: 'short',
       day: 'numeric',
     })
+  }
+
+  const flattenObject = (
+    obj: any,
+    prefix = '',
+    result: Record<string, any> = {},
+  ): Record<string, any> => {
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key]
+        const newKey = prefix ? `${prefix}.${key}` : key
+
+        if (
+          value !== null &&
+          typeof value === 'object' &&
+          !Array.isArray(value)
+        ) {
+          flattenObject(value, newKey, result)
+        } else {
+          result[newKey] = value
+        }
+      }
+    }
+    return result
+  }
+
+  const formatCellValue = (value: any): string => {
+    if (value === null || value === undefined) return '—'
+    if (Array.isArray(value)) {
+      return JSON.stringify(value)
+    }
+    if (typeof value === 'object') {
+      return JSON.stringify(value)
+    }
+    return String(value)
   }
 
   const formatNumber = (num: number, decimals = 2) => {
@@ -220,7 +264,7 @@ function Step2VectorSearch({ datasets }: { datasets: DatasetResponse[] }) {
         </Group>
       </Group>
 
-      <Tabs variant="default" defaultValue="map">
+      <Tabs variant="default" defaultValue="list">
         <Tabs.List>
           <Tabs.Tab
             value="map"
@@ -504,113 +548,221 @@ function Step2VectorSearch({ datasets }: { datasets: DatasetResponse[] }) {
                     </Group>
                   )}
 
-                {/* Fields Accordion */}
-                {dataset.metadata.fields &&
-                  Object.keys(dataset.metadata.fields).length > 0 && (
-                    <Accordion
-                      variant="contained"
-                      radius="md"
-                      chevronPosition="right"
-                    >
-                      <Accordion.Item value="fields">
-                        <Accordion.Control icon={<IconChartBar size={20} />}>
+                {/* Fields and Data Accordion */}
+                {(dataset.metadata.fields &&
+                  Object.keys(dataset.metadata.fields).length > 0) ||
+                (datasetsData && datasetsData[dataset.metadata.id]) ? (
+                  <Accordion
+                    variant="contained"
+                    radius="md"
+                    chevronPosition="right"
+                    defaultValue="data"
+                  >
+                    {dataset.metadata.fields &&
+                      Object.keys(dataset.metadata.fields).length > 0 && (
+                        <Accordion.Item value="fields">
+                          <Accordion.Control icon={<IconChartBar size={20} />}>
+                            <Group gap="xs">
+                              <Text fw={500}>Dataset Fields</Text>
+                              <Badge size="sm" variant="light" color="cyan">
+                                {Object.keys(dataset.metadata.fields).length}{' '}
+                                fields
+                              </Badge>
+                            </Group>
+                          </Accordion.Control>
+                          <Accordion.Panel>
+                            <ScrollArea className="max-h-96 overflow-y-scroll!">
+                              <Stack gap="md">
+                                {Object.entries(dataset.metadata.fields).map(
+                                  ([fieldName, field]) => (
+                                    <Paper
+                                      key={fieldName}
+                                      p="md"
+                                      radius="sm"
+                                      withBorder
+                                    >
+                                      <Group
+                                        justify="space-between"
+                                        className="mb-2"
+                                      >
+                                        <Group gap="xs">
+                                          {getFieldIcon(field.type)}
+                                          <Text fw={600} size="sm">
+                                            {fieldName}
+                                          </Text>
+                                          <Badge
+                                            size="xs"
+                                            variant="light"
+                                            color="blue"
+                                          >
+                                            {field.type}
+                                          </Badge>
+                                        </Group>
+                                        <Group gap="xs">
+                                          <Tooltip label="Unique Values">
+                                            <Badge
+                                              size="sm"
+                                              variant="outline"
+                                              color="green"
+                                            >
+                                              {field.unique_count.toLocaleString()}{' '}
+                                              unique
+                                            </Badge>
+                                          </Tooltip>
+                                          {field.null_count > 0 && (
+                                            <Tooltip label="Null Values">
+                                              <Badge
+                                                size="sm"
+                                                variant="outline"
+                                                color="red"
+                                              >
+                                                {field.null_count.toLocaleString()}{' '}
+                                                nulls
+                                              </Badge>
+                                            </Tooltip>
+                                          )}
+                                        </Group>
+                                      </Group>
+
+                                      {/* Null percentage bar */}
+                                      {field.null_count > 0 &&
+                                        field.unique_count > 0 && (
+                                          <Box className="mb-2">
+                                            <Text
+                                              size="xs"
+                                              c="dimmed"
+                                              className="mb-1"
+                                            >
+                                              Data Completeness
+                                            </Text>
+                                            <Progress
+                                              value={
+                                                ((field.unique_count -
+                                                  field.null_count) /
+                                                  field.unique_count) *
+                                                100
+                                              }
+                                              size="sm"
+                                              radius="xl"
+                                              color="teal"
+                                            />
+                                          </Box>
+                                        )}
+
+                                      {renderFieldDetails(field)}
+                                    </Paper>
+                                  ),
+                                )}
+                              </Stack>
+                            </ScrollArea>
+                          </Accordion.Panel>
+                        </Accordion.Item>
+                      )}
+
+                    {datasetsData && datasetsData[dataset.metadata.id] && (
+                      <Accordion.Item value="data">
+                        <Accordion.Control icon={<IconTable size={20} />}>
                           <Group gap="xs">
-                            <Text fw={500}>Dataset Fields</Text>
+                            <Text fw={500}>Dataset Sample</Text>
+                            <Badge size="sm" variant="light" color="teal">
+                              {datasetsData[dataset.metadata.id].row_count} rows
+                            </Badge>
                             <Badge size="sm" variant="light" color="cyan">
-                              {Object.keys(dataset.metadata.fields).length}{' '}
-                              fields
+                              {datasetsData[dataset.metadata.id].sample.length}{' '}
+                              sample
                             </Badge>
                           </Group>
                         </Accordion.Control>
                         <Accordion.Panel>
-                          <ScrollArea className="max-h-96 overflow-y-scroll!">
-                            <Stack gap="md">
-                              {Object.entries(dataset.metadata.fields).map(
-                                ([fieldName, field]) => (
-                                  <Paper
-                                    key={fieldName}
-                                    p="md"
-                                    radius="sm"
-                                    withBorder
+                          <ScrollArea className="max-h-96">
+                            {(() => {
+                              const sample = datasetsData[dataset.metadata.id]
+                              if (
+                                !sample.sample ||
+                                sample.sample.length === 0
+                              ) {
+                                return (
+                                  <Text
+                                    size="sm"
+                                    c="dimmed"
+                                    ta="center"
+                                    py="lg"
                                   >
-                                    <Group
-                                      justify="space-between"
-                                      className="mb-2"
-                                    >
-                                      <Group gap="xs">
-                                        {getFieldIcon(field.type)}
-                                        <Text fw={600} size="sm">
-                                          {fieldName}
-                                        </Text>
-                                        <Badge
-                                          size="xs"
-                                          variant="light"
-                                          color="blue"
-                                        >
-                                          {field.type}
-                                        </Badge>
-                                      </Group>
-                                      <Group gap="xs">
-                                        <Tooltip label="Unique Values">
-                                          <Badge
-                                            size="sm"
-                                            variant="outline"
-                                            color="green"
-                                          >
-                                            {field.unique_count.toLocaleString()}{' '}
-                                            unique
-                                          </Badge>
-                                        </Tooltip>
-                                        {field.null_count > 0 && (
-                                          <Tooltip label="Null Values">
-                                            <Badge
-                                              size="sm"
-                                              variant="outline"
-                                              color="red"
-                                            >
-                                              {field.null_count.toLocaleString()}{' '}
-                                              nulls
-                                            </Badge>
-                                          </Tooltip>
-                                        )}
-                                      </Group>
-                                    </Group>
+                                    No sample data available
+                                  </Text>
+                                )
+                              }
 
-                                    {/* Null percentage bar */}
-                                    {field.null_count > 0 &&
-                                      field.unique_count > 0 && (
-                                        <Box className="mb-2">
-                                          <Text
-                                            size="xs"
-                                            c="dimmed"
-                                            className="mb-1"
-                                          >
-                                            Data Completeness
-                                          </Text>
-                                          <Progress
-                                            value={
-                                              ((field.unique_count -
-                                                field.null_count) /
-                                                field.unique_count) *
-                                              100
-                                            }
-                                            size="sm"
-                                            radius="xl"
-                                            color="teal"
-                                          />
-                                        </Box>
-                                      )}
+                              // Flatten all rows
+                              const flattenedRows = sample.sample.map((row) =>
+                                flattenObject(row),
+                              )
 
-                                    {renderFieldDetails(field)}
-                                  </Paper>
+                              // Get all unique columns from flattened data
+                              const columns = Array.from(
+                                new Set(
+                                  flattenedRows.flatMap((row) =>
+                                    Object.keys(row),
+                                  ),
                                 ),
-                              )}
-                            </Stack>
+                              )
+
+                              return (
+                                <Table striped highlightOnHover>
+                                  <Table.Thead>
+                                    <Table.Tr className="bg-gray-100">
+                                      {columns.map((col) => (
+                                        <Table.Th
+                                          key={col}
+                                          className="px-3 py-2 font-semibold text-gray-800"
+                                        >
+                                          {col}
+                                        </Table.Th>
+                                      ))}
+                                    </Table.Tr>
+                                  </Table.Thead>
+                                  <Table.Tbody>
+                                    {flattenedRows.map((row, rowIndex) => (
+                                      <Table.Tr
+                                        key={rowIndex}
+                                        className={
+                                          rowIndex % 2 === 0
+                                            ? 'bg-white'
+                                            : 'bg-gray-50'
+                                        }
+                                      >
+                                        {columns.map((col) => {
+                                          const cellValue = formatCellValue(
+                                            row[col],
+                                          )
+                                          return (
+                                            <Table.Td
+                                              key={`${rowIndex}-${col}`}
+                                              className="px-3 py-2 max-w-xs"
+                                            >
+                                              <Tooltip label={cellValue}>
+                                                <Text
+                                                  size="sm"
+                                                  className="truncate"
+                                                >
+                                                  {cellValue}
+                                                </Text>
+                                              </Tooltip>
+                                            </Table.Td>
+                                          )
+                                        })}
+                                      </Table.Tr>
+                                    ))}
+                                  </Table.Tbody>
+                                </Table>
+                              )
+                            })()}
                           </ScrollArea>
                         </Accordion.Panel>
                       </Accordion.Item>
-                    </Accordion>
-                  )}
+                    )}
+                  </Accordion>
+                ) : null}
               </Card>
             ))}
           </Stack>

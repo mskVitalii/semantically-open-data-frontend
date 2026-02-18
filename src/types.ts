@@ -132,8 +132,19 @@ export type Step2VectorSearchType = {
   datasets: DatasetResponse[]
 }
 
-// 3. INTERPRETATION
-export type Step3InterpretationType = {
+// 3. DATASETS DATA
+export type DatasetSample = {
+  row_count: number
+  sample: Array<Record<string, any>>
+}
+
+export type Step3DatasetsType = {
+  question_hash: string
+  datasets_data: Record<string, DatasetSample>
+}
+
+// 4. INTERPRETATION
+export type Step4InterpretationType = {
   question_hash: string
   answer: string
 }
@@ -144,7 +155,8 @@ export type ResearchQuestionStepsType = {
   research_question?: LLMQuestion
   embeddings?: Step1EmbeddingsType
   datasets?: DatasetResponse[]
-  interpretation?: Step3InterpretationType
+  datasets_data?: Step3DatasetsType
+  interpretation?: Step4InterpretationType
 }
 
 export type SearchFilters = {
@@ -165,4 +177,6 @@ export type SearchParams = {
   limit: number
   useReranker: boolean
   rerankerCandidates: number
+  useMongoData: boolean
+  mongoDataLimit: number
 }
